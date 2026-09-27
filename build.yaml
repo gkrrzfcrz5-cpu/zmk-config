@@ -1,0 +1,16 @@
+# This file generates the GitHub Actions build matrix.
+#
+# Verified against ZMK v0.3.0 source (commit edf5c08, Zephyr v3.5.0+zmk-fixes):
+#   - Board  `seeeduino_xiao_ble`  -> app/boards/arm/seeeduino_xiao_ble/seeeduino_xiao_ble.zmk.yml
+#                                     (id: seeeduino_xiao_ble, exposes: [seeed_xiao], outputs: usb, ble)
+#   - Shield `tester_xiao`         -> app/boards/shields/tester_xiao/ (requires: [seeed_xiao])
+#
+# NOTE: The Zephyr 3.6+ "board//variant" target syntax (e.g. `xiao_ble//zmk`) does
+# NOT exist on ZMK v0.3 / Zephyr 3.5. `seeeduino_xiao_ble` is the correct, verified id.
+---
+include:
+  # Phase 2 bring-up: GPIO tester firmware.
+  # Shorting any XIAO digital pin D0..D10 to GND types "PIN <n><ENTER>" over USB HID.
+  - board: seeeduino_xiao_ble
+    shield: tester_xiao
+    artifact-name: seeeduino_xiao_ble-tester_xiao

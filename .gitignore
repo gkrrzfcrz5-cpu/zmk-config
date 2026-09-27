@@ -1,0 +1,9 @@
+# Build artifacts (cloud build produces these; do not commit)
+*.uf2
+*.hex
+*.bin
+build/
+.west/
+
+# macOS
+.DS_Store
