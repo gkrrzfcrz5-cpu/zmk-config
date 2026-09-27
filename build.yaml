@@ -7,20 +7,13 @@
 #
 # NOTE: The Zephyr 3.6+ "board//variant" target syntax (e.g. `xiao_ble//zmk`) does
 # NOT exist on ZMK v0.3 / Zephyr 3.5. `seeeduino_xiao_ble` is the correct, verified id.
+#
+# BLE is enabled for the tester via config/tester_xiao.conf (a user config fragment
+# overrides tester_xiao's Kconfig.defconfig def_bool n). The resulting firmware does
+# BOTH: USB HID GPIO test (short D0..D10 to GND -> types "PIN <n>") AND advertises as
+# a BLE HID keyboard ("ZMK Tester") for pairing with the Mac.
 ---
 include:
-  # Phase 2 bring-up (USB-only): GPIO tester firmware.
-  # Shorting any XIAO digital pin D0..D10 to GND types "PIN <n><ENTER>" over USB HID.
-  # NOTE: tester_xiao hard-disables BLE (Kconfig.defconfig: ZMK_BLE/SETTINGS def_bool n).
   - board: seeeduino_xiao_ble
     shield: tester_xiao
-    artifact-name: seeeduino_xiao_ble-tester_xiao
-
-  # Phase 2 BLE smoke-test: same GPIO tester, but re-enable BLE + settings so the
-  # board advertises as a BLE HID keyboard ("ZMK Tester") and can pair with the Mac.
-  # CONFIG_ZMK_BLE has a Kconfig prompt, so -DCONFIG_* cmake args override the
-  # shield's def_bool n. Verified against ZMK v0.3 app/Kconfig (menuconfig ZMK_BLE).
-  - board: seeeduino_xiao_ble
-    shield: tester_xiao
-    cmake-args: -DCONFIG_ZMK_BLE=y -DCONFIG_SETTINGS=y -DCONFIG_ZMK_USB=y
     artifact-name: seeeduino_xiao_ble-tester_xiao-ble
