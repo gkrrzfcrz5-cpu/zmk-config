@@ -52,8 +52,14 @@ Jobs (all success): `Fetch Build Keyboards`, `Build (seeeduino_xiao_ble, tester_
 | UF2 file validated (magic + family id) | ✅ | magicStart0/1 + magicEnd OK; familyID 0xADA52840 (nRF52840); appStart 0x27000; 717 blocks / 367104 B |
 | UF2 flashed to board | ✅ FLASH | copied to `/Volumes/XIAO-SENSE`; drive auto-ejected + rebooted; now enumerates as USB **"ZMK Tester" (ZMK Project)** |
 | Board identity | ✅ | INFO_UF2.TXT: Model "Seeed XIAO nRF52840", Board-ID `Seeed_XIAO_nRF52840_Sense`, bootloader 0.6.1, SoftDevice S140 v7.3.0 |
-| GPIO test (D0..D10 short-to-GND types `PIN n`) | ⛔ NOT TESTED | requires hardware (user performing now) |
-| BLE pairing to Mac | ⛔ NOT TESTED | requires hardware |
+| GPIO test (D0..D10 short-to-GND types `PIN n`) | ⛔ NOT TESTED | requires hardware (no jumper/conductor on hand yet) |
+| BLE build variant compiles | ✅ BUILD | run #4 `36327291094`: 2nd build job (`-DCONFIG_ZMK_BLE=y -DCONFIG_SETTINGS=y -DCONFIG_ZMK_USB=y`) = success |
+| BLE pairing to Mac | ⛔ NOT TESTED | tester (USB build) has BLE **disabled by design**; use `-ble` variant. Pairing test pending. |
+
+> Finding: `tester_xiao` disables BLE + SETTINGS (`Kconfig.defconfig def_bool n`),
+> so the plain tester cannot pair. A BLE-enabled variant
+> (`seeeduino_xiao_ble-tester_xiao-ble.uf2`) was added to `build.yaml` via
+> cmake-args to allow the Phase 2 BLE pairing test.
 
 ---
 
