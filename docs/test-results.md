@@ -49,8 +49,10 @@ Jobs (all success): `Fetch Build Keyboards`, `Build (seeeduino_xiao_ble, tester_
 | Item | Level reached | Evidence |
 |------|---------------|----------|
 | `seeeduino_xiao_ble` + `tester_xiao` compiles | ✅ BUILD | run #1 build job success + artifact (see above) |
-| UF2 flashed to board | ⛔ NOT TESTED | requires hardware (board not connected) |
-| GPIO test (D0..D10 short-to-GND types `PIN n`) | ⛔ NOT TESTED | requires hardware |
+| UF2 file validated (magic + family id) | ✅ | magicStart0/1 + magicEnd OK; familyID 0xADA52840 (nRF52840); appStart 0x27000; 717 blocks / 367104 B |
+| UF2 flashed to board | ✅ FLASH | copied to `/Volumes/XIAO-SENSE`; drive auto-ejected + rebooted; now enumerates as USB **"ZMK Tester" (ZMK Project)** |
+| Board identity | ✅ | INFO_UF2.TXT: Model "Seeed XIAO nRF52840", Board-ID `Seeed_XIAO_nRF52840_Sense`, bootloader 0.6.1, SoftDevice S140 v7.3.0 |
+| GPIO test (D0..D10 short-to-GND types `PIN n`) | ⛔ NOT TESTED | requires hardware (user performing now) |
 | BLE pairing to Mac | ⛔ NOT TESTED | requires hardware |
 
 ---
