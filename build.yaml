@@ -8,10 +8,13 @@
 # NOTE: The Zephyr 3.6+ "board//variant" target syntax (e.g. `xiao_ble//zmk`) does
 # NOT exist on ZMK v0.3 / Zephyr 3.5. `seeeduino_xiao_ble` is the correct, verified id.
 #
-# BLE is enabled for the tester via config/tester_xiao.conf (a user config fragment
-# overrides tester_xiao's Kconfig.defconfig def_bool n). The resulting firmware does
-# BOTH: USB HID GPIO test (short D0..D10 to GND -> types "PIN <n>") AND advertises as
-# a BLE HID keyboard ("ZMK Tester") for pairing with the Mac.
+# BLE is enabled automatically by the board-level fragment
+# app/boards/seeeduino_xiao_ble.conf (CONFIG_ZMK_BLE=y, auto-loaded by Zephyr),
+# which wins over tester_xiao's Kconfig.defconfig `def_bool n`. Verified by
+# decoding the .uf2: it links the Nordic BLE controller + GATT HID. The resulting
+# firmware does BOTH: USB HID GPIO test (short D0..D10 to GND -> types "PIN <n>")
+# AND advertises as a BLE HID keyboard ("ZMK Tester") for pairing with the Mac.
+# (config/tester_xiao.conf restates ZMK_BLE=y for documentation; it is redundant.)
 ---
 include:
   - board: seeeduino_xiao_ble

@@ -53,13 +53,18 @@ Jobs (all success): `Fetch Build Keyboards`, `Build (seeeduino_xiao_ble, tester_
 | UF2 flashed to board | ✅ FLASH | copied to `/Volumes/XIAO-SENSE`; drive auto-ejected + rebooted; now enumerates as USB **"ZMK Tester" (ZMK Project)** |
 | Board identity | ✅ | INFO_UF2.TXT: Model "Seeed XIAO nRF52840", Board-ID `Seeed_XIAO_nRF52840_Sense`, bootloader 0.6.1, SoftDevice S140 v7.3.0 |
 | GPIO test (D0..D10 short-to-GND types `PIN n`) | ⛔ NOT TESTED | requires hardware (no jumper/conductor on hand yet) |
-| BLE build variant compiles | ✅ BUILD | run #4 `36327291094`: 2nd build job (`-DCONFIG_ZMK_BLE=y -DCONFIG_SETTINGS=y -DCONFIG_ZMK_USB=y`) = success |
-| BLE pairing to Mac | ⛔ NOT TESTED | tester (USB build) has BLE **disabled by design**; use `-ble` variant. Pairing test pending. |
+| BLE stack compiled into flashed firmware | ✅ BUILD | decoded flashed `.uf2`: links Nordic BLE controller (`zephyr/subsys/bluetooth/controller/ll_sw/nordic/`) + `BT_`/`GATT`/`peripheral` symbols; BLE name `ZMK Tester` present. `CONFIG_ZMK_BLE=y` confirmed present. |
+| Plain vs `-ble` build identical | ✅ | both `.uf2` byte-identical, SHA-256 `8ba209…5380` → the flashed tester already contains BLE |
+| BLE pairing to Mac | ⛔ NOT TESTED | firmware advertises as `ZMK Tester`; user to pair via System Settings → Bluetooth (just-works, no PIN). |
 
-> Finding: `tester_xiao` disables BLE + SETTINGS (`Kconfig.defconfig def_bool n`),
-> so the plain tester cannot pair. A BLE-enabled variant
-> (`seeeduino_xiao_ble-tester_xiao-ble.uf2`) was added to `build.yaml` via
-> cmake-args to allow the Phase 2 BLE pairing test.
+> **Corrected finding (2026-09-27):** an earlier note claimed `tester_xiao`
+> disables BLE by design (`Kconfig.defconfig def_bool n`). That is wrong for this
+> board. The board-level fragment `app/boards/seeeduino_xiao_ble.conf`
+> (`CONFIG_ZMK_BLE=y`, `CONFIG_ZMK_USB=y`), which Zephyr auto-loads for the
+> `seeeduino_xiao_ble` board, **overrides** the shield's `def_bool n`. Proof: the
+> flashed firmware links the Nordic BLE link-layer controller and exposes a BLE
+> HID device. No separate BLE variant or reflash is needed — the tester already
+> does USB HID + BLE HID simultaneously.
 
 ---
 
