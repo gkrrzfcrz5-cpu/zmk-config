@@ -35,9 +35,12 @@
 |------|---------------|----------|
 | Config scaffolded from official template | ✅ CODE-REVIEW | files copied verbatim from `zmkfirmware/unified-zmk-config-template` |
 | Board/shield identifiers verified against v0.3 source | ✅ CODE-REVIEW | `seeeduino_xiao_ble.zmk.yml`, `tester_xiao.zmk.yml` |
-| GitHub repo `zmk-config` created | ⛔ NOT DONE | pending (see progress.md) |
-| GitHub Actions build succeeds | ⛔ NOT TESTED | requires repo + push |
-| UF2 artifact produced | ⛔ NOT TESTED | requires successful Actions run |
+| GitHub repo `zmk-config` created | ✅ DONE | `git@github.com:gkrrzfcrz5-cpu/zmk-config.git`, push `main` OK |
+| GitHub Actions build succeeds | ✅ BUILD | run #1 `36325932901` = **success** (~3.5 min) |
+| UF2 artifact produced | ✅ BUILD | artifact `firmware` = 139,472 bytes (contains `.uf2`) |
+
+Run URL: https://github.com/gkrrzfcrz5-cpu/zmk-config/actions/runs/36325932901
+Jobs (all success): `Fetch Build Keyboards`, `Build (seeeduino_xiao_ble, tester_xiao, seeeduino_xiao_ble-tester_xiao)`, `Merge Output Artifacts`.
 
 ---
 
@@ -45,8 +48,8 @@
 
 | Item | Level reached | Evidence |
 |------|---------------|----------|
-| `seeeduino_xiao_ble` + `tester_xiao` compiles | ⛔ NOT TESTED | requires Actions run |
-| UF2 flashed to board | ⛔ NOT TESTED | requires hardware |
+| `seeeduino_xiao_ble` + `tester_xiao` compiles | ✅ BUILD | run #1 build job success + artifact (see above) |
+| UF2 flashed to board | ⛔ NOT TESTED | requires hardware (board not connected) |
 | GPIO test (D0..D10 short-to-GND types `PIN n`) | ⛔ NOT TESTED | requires hardware |
 | BLE pairing to Mac | ⛔ NOT TESTED | requires hardware |
 
