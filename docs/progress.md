@@ -45,15 +45,22 @@ Completed:
 - **Compilation done & verified**: `seeeduino_xiao_ble` + `tester_xiao` builds
   successfully in CI (see run #1). This satisfies the "compiles + UF2 produced"
   part of the Phase 2 gate.
+- **Flash verified (FLASH)**: UF2 flashed via bootloader; board enumerates as
+  USB "ZMK Tester".
+- **BLE compiled-in verified (BUILD)**: decoded the flashed `.uf2` — it links the
+  Nordic BLE controller + GATT HID. Board-level `app/boards/seeeduino_xiao_ble.conf`
+  (`CONFIG_ZMK_BLE=y`) overrides the shield's `def_bool n`; the earlier
+  "tester disables BLE" note was corrected.
+- **BLE pairing verified (HW-VERIFIED)**: device advertises as `ZMK Tester`;
+  just-works pairing to the Mac succeeded (user-observed, 2026-09-27).
 
 Blocked / needs user (hardware):
-- Connect the XIAO board and flash the tester UF2 (see steps below).
-- Run the GPIO short-to-GND test (D0..D10 -> types `PIN n`).
-- Verify BLE pairing to the Mac.
+- Run the GPIO short-to-GND test (D0..D10 -> types `PIN n`) — needs a jumper
+  wire / paperclip / any conductor. Deferred until user has one on hand.
 
 Next executable task:
-- User: confirm board availability; download `firmware` artifact from run #1;
-  flash via UF2 bootloader; report observed GPIO/BLE results.
+- Phase 3: research XIAO pinout and propose the `ai_companion` shield GPIO
+  allocation (4 buttons + rotary encoder + push) for review BEFORE implementing.
 ## Phase 3 — ai_companion shield  ⏳ NOT STARTED
 ## Phase 4 — Display + haptic  ⏳ NOT STARTED
 ## Phase 5 — MacBook communication  ⏳ NOT STARTED

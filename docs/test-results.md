@@ -55,7 +55,7 @@ Jobs (all success): `Fetch Build Keyboards`, `Build (seeeduino_xiao_ble, tester_
 | GPIO test (D0..D10 short-to-GND types `PIN n`) | ⛔ NOT TESTED | requires hardware (no jumper/conductor on hand yet) |
 | BLE stack compiled into flashed firmware | ✅ BUILD | decoded flashed `.uf2`: links Nordic BLE controller (`zephyr/subsys/bluetooth/controller/ll_sw/nordic/`) + `BT_`/`GATT`/`peripheral` symbols; BLE name `ZMK Tester` present. `CONFIG_ZMK_BLE=y` confirmed present. |
 | Plain vs `-ble` build identical | ✅ | both `.uf2` byte-identical, SHA-256 `8ba209…5380` → the flashed tester already contains BLE |
-| BLE pairing to Mac | ⛔ NOT TESTED | firmware advertises as `ZMK Tester`; user to pair via System Settings → Bluetooth (just-works, no PIN). |
+| BLE pairing to Mac | ✅ HW-VERIFIED | device appears as `ZMK Tester` in macOS System Settings → Bluetooth; just-works pairing succeeded (2026-09-27, user-observed). |
 
 > **Corrected finding (2026-09-27):** an earlier note claimed `tester_xiao`
 > disables BLE by design (`Kconfig.defconfig def_bool n`). That is wrong for this
