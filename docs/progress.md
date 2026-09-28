@@ -112,6 +112,19 @@ Known risk (Phase 4): DRV2605L has no ZMK/Zephyr 3.5 driver → will need a smal
 custom I2C driver / behaviour. OLED (SSD1306) is natively supported.
 ## Phase 4 — Display + haptic  ⏳ IN PROGRESS (2026-09-28)
 Completed:
+- **DRV2605L haptic BUILD ✅ (2026-09-28):** implemented a custom out-of-tree ZMK
+  behavior `aic,behavior-haptic` (`src/behavior_haptic.c`) that fires a one-shot
+  ERM buzz (effect 47, "Buzz 1 - 100%") via raw I2C register writes — there is no
+  Zephyr DRV2605 driver. The node at `drv2605@5a` on `&xiao_i2c` is BOTH the I2C
+  device and the behavior; the keymap references `&haptic`. Module wiring:
+  `zephyr/module.yml` (cmake/kconfig/dts_root), `Kconfig` (ZMK_BEHAVIOR_HAPTIC),
+  `CMakeLists.txt`, DT binding `aic,behavior-haptic.yaml`. Two build fixes:
+  (1) add ZMK `app/include` to the module include path (ZMK keeps it PRIVATE to
+  its own `app` target) so `<drivers/behavior.h>` resolves;
+  (2) init at `CONFIG_APPLICATION_INIT_PRIORITY` (after the I2C controller) so
+  the build-time `check_init_priorities` passes. CI run `36375309425` = success;
+  artifact `firmware` 360,157 B. **TEMPORARY:** the Open button (D10) is bound to
+  `&haptic` for HW testing — restore `&kp O` after the motor is HW-verified.
 - **OLED HW-VERIFIED ✅ (2026-09-28):** flashed to the XIAO on the expansion
   board; the on-board SSD1306 shows the ZMK built-in status screen (battery
   widget + "AI Compani…" device name). It blanks on idle (ZMK `blank-on-idle`
@@ -127,9 +140,8 @@ Completed:
   Uses the built-in ZMK status screen (layer/battery/output widgets).
 
 Next executable task (user, hardware):
-- Plug XIAO into the expansion board, flash the new uf2 → confirm the OLED lights
-  up and shows the status screen (HW-VERIFY).
-
-Then (me): DRV2605L haptic — needs a small custom I2C driver (no ZMK/Zephyr 3.5
-driver). Motor = ERM. Isolated dev → BUILD → FLASH → HW-verify (motor buzzes).
+- Download the `firmware` artifact from run `36375309425`, flash the ai_companion
+  uf2, wire the DRV2605L (Grove I2C: VIN→3V3, GND→GND, SDA→D4, SCL→D5) with an
+  ERM motor on OUT+/OUT−, press the Open button (D10) → motor buzzes (HW-VERIFY).
+- After haptic HW-verify: restore `&kp O` for the Open button; merge Phase 4.
 ## Phase 5 — MacBook communication  ⏳ NOT STARTED
