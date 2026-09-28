@@ -50,7 +50,13 @@
             bindings = <
                 &kp V   &kp Y   &kp N   &haptic
             >;
-            sensor-bindings = <&encoder_scroll>;
+            // TEMPORARY (Phase 4c encoder HW test): map rotation to VOLUME
+            // up/down instead of scroll. Volume shows an on-screen HUD on macOS
+            // regardless of focus, so it unambiguously proves the encoder
+            // hardware produces events. Restore `<&encoder_scroll>` after the
+            // encoder is HW-verified.
+            sensor-bindings = <&inc_dec_kp C_VOLUME_UP C_VOLUME_DOWN>;
+            // sensor-bindings = <&encoder_scroll>;
         };
     };
 };
