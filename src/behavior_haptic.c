@@ -8,9 +8,11 @@
  * drivers/haptics, no ti,drv2605 binding — so we do raw register writes via the
  * Zephyr I2C API. "Just vibrate": on each key press we run the full DRV2605L
  * buzz sequence (exit standby -> ERM -> library -> waveform -> GO). Doing the
- * whole sequence per press (rather than a one-time init) sidesteps the
- * init-order problem where a behavior at KERNEL_INIT_PRIORITY_DEFAULT (40) would
- * run before the nRF TWIM I2C controller (I2C_INIT_PRIORITY 50).
+ * whole sequence per press (rather than a one-time init) means our init() does
+ * nothing, so init order never matters functionally. The node is still an I2C
+ * device in the devicetree, so Zephyr's build-time check_init_priorities
+ * requires it to init AFTER the I2C controller: we use
+ * CONFIG_APPLICATION_INIT_PRIORITY (90), well after the nRF TWIM controller.
  *
  * Register values verified against the Adafruit_DRV2605 library (matches chip);
  * effect id 47 ("Buzz 1 - 100%") verified from the DRV2605L learn-guide PDF.
@@ -97,7 +99,7 @@ static const struct behavior_driver_api behavior_haptic_driver_api = {
     static const struct behavior_haptic_config behavior_haptic_config_##n = {                       \
         .i2c = I2C_DT_SPEC_INST_GET(n)};                                                            \
     BEHAVIOR_DT_INST_DEFINE(n, behavior_haptic_init, NULL, NULL, &behavior_haptic_config_##n,       \
-                            POST_KERNEL, CONFIG_KERNEL_INIT_PRIORITY_DEFAULT,                       \
+                            POST_KERNEL, CONFIG_APPLICATION_INIT_PRIORITY,                          \
                             &behavior_haptic_driver_api);
 
 DT_INST_FOREACH_STATUS_OKAY(HAPTIC_INST)
