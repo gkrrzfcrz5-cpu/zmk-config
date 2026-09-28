@@ -11,4 +11,9 @@
 if(CONFIG_ZMK_BEHAVIOR_HAPTIC)
   zephyr_library()
   zephyr_library_sources(src/behavior_haptic.c)
+  # ZMK exposes drivers/behavior.h and zmk/behavior.h only to its own `app`
+  # target (app/CMakeLists.txt: target_include_directories(app PRIVATE include)),
+  # so an out-of-tree module does not inherit them. Add ZMK's app/include dir
+  # explicitly. APPLICATION_SOURCE_DIR resolves to <workspace>/zmk/app at build.
+  zephyr_library_include_directories(${APPLICATION_SOURCE_DIR}/include)
 endif()
