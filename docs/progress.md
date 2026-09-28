@@ -61,8 +61,16 @@ Blocked / needs user (hardware):
 Next executable task:
 - Phase 3: research XIAO pinout and propose the `ai_companion` shield GPIO
   allocation (4 buttons + rotary encoder + push) for review BEFORE implementing.
-## Phase 3 — ai_companion shield  ⏳ IN PROGRESS (2026-09-28)
+## Phase 3 — ai_companion shield  ✅ HW-VERIFIED (buttons) (2026-09-28)
 Completed:
+- **FLASH ✅ (2026-09-28):** `seeeduino_xiao_ble-ai_companion.uf2` flashed via
+  bootloader; board re-enumerates as USB **"AI Companion"** (VID 0x1D50 / PID 0x615E).
+- **Buttons HW-VERIFIED ✅ (2026-09-28):** user jumpered each pin to GND and the
+  correct keycode was typed over USB HID — D0→`v` (Voice), D2→`y` (Yes),
+  D9→`n` (No), D10→`o` (Open). Test string observed: `vvvvyyyyynnnnnnooo`.
+  All 4 buttons + the expansion-board pin re-allocation are confirmed on real hardware.
+- Encoder rotation (→ mouse-wheel scroll) still ⛔ NOT TESTED — encoder not in hand.
+
 - Proposed + user-approved pin allocation: D0 Voice / D1 Yes / D2 No / D3 Open /
   D7 encoder-A(SIGA) / D8 encoder-B(SIGB); D4/D5 reserved for I2C
   (OLED SSD1306 + DRV2605L), D6/D9/D10 spare.
@@ -96,9 +104,9 @@ Parts status: XIAO ✅, expansion board + OLED ✅, DRV2605L + motor ✅ in hand
 physical buttons ⛔ (test via jumper-to-GND), rotary encoder ⛔ (not yet arrived).
 
 Next executable task (user, hardware):
-- Flash `seeeduino_xiao_ble-ai_companion.uf2`; touch D0 / D2 / D9 / D10 to GND →
-  expect V / Y / N / O typed. Encoder rotation (→ scroll) verified once the knob
-  arrives.
+- Encoder rotation (→ scroll) verified once the knob arrives.
+- Phase 4: OLED (SSD1306, native) status display + DRV2605L (ERM) haptic
+  (needs a small custom I2C driver — no ZMK/Zephyr 3.5 driver exists).
 
 Known risk (Phase 4): DRV2605L has no ZMK/Zephyr 3.5 driver → will need a small
 custom I2C driver / behaviour. OLED (SSD1306) is natively supported.
