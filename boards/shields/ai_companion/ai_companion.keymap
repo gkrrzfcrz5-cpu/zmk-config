@@ -28,7 +28,7 @@
 
 #include <behaviors.dtsi>
 #include <dt-bindings/zmk/keys.h>
-#include <dt-bindings/zmk/bt.h>
+#include <dt-bindings/zmk/outputs.h>
 
 /*
  * Raise the default mouse-scroll speed BEFORE including pointing.h so SCRL_UP /
@@ -76,7 +76,7 @@
         default_layer {
             display-name = "AICompanion";
             bindings = <
-                &kp V   &kp Y   &kp N   &bt BT_CLR
+                &kp V   &kp Y   &kp N   &out OUT_TOG
             >;
             // Encoder rotation = mouse-wheel scroll (real function: scroll the
             // focused Mac/Optimus window). Rotation hardware HW-verified 2026-09-28
