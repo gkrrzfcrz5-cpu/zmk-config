@@ -195,7 +195,31 @@ mono prototype of the "12 Core Screen States" UI on the in-hand SSD1306 (128x64,
   included only `<lvgl.h>` but used `ARG_UNUSED`, which lives in a Zephyr header.
   Fixed by adding `#include <zephyr/kernel.h>`. (Unknown CONFIG names only warn;
   a hard exit-1 = a C compile error → tester passing localised it to this file.)
-- CI run `36403320578` = success; artifact `firmware` 366,303 B. FLASH pending
-  (user downloads the artifact from the web, then I flash via the bootloader).
+- CI run `36403320578` = success; artifact `firmware` 366,303 B.
+- **RENDER BUG → FIXED (HW-VERIFIED, 2026-09-28):** the first flashes showed the
+  whole SSD1306 as garbage ("全是亂碼"), and a stripped-down 3-label diagnostic
+  screen (identical in pattern to ZMK's known-good built-in) was *also* garbage
+  — proving the fault was NOT the layout code but a lower-layer config lost when
+  switching from BUILT_IN to CUSTOM. **Root cause:** ZMK's Kconfig sets
+  `LV_Z_MEM_POOL_SIZE default 4096 if ZMK_DISPLAY_STATUS_SCREEN_BUILT_IN`
+  (app/src/display/Kconfig) — that 4096-byte LVGL heap default is dropped the
+  moment CUSTOM is selected, so LVGL fell back to a much smaller base pool. With
+  too little heap, LVGL's draw/glyph allocations fail mid-render and the panel
+  fills with garbage. **Fix:** `CONFIG_LV_Z_MEM_POOL_SIZE=4096` in
+  `ai_companion.conf` (commit `42d9a0a`, CI run `36408304523`). Flashed as fw12
+  (546,304 B) → the 3-label diagnostic rendered cleanly on hardware (user
+  confirmed). Also re-added `CONFIG_LV_USE_THEME_MONO=y` (only `imply`d under
+  BUILT_IN) — kept, since a 1bpp custom screen still needs the mono theme.
+  Diagnostic lesson: a minimal screen that mirrors the built-in exactly isolates
+  layout bugs from pipeline/config bugs — when both fail, the config is at fault.
+- **Full 12-state UI restored (commit `372a1d6`):** brought back the complete
+  text-forward prototype now that the heap is sized right; `aic_render()` calls
+  `lv_obj_clean()` on each state so heap use stays bounded across the 5s cycle.
+  CI run `36424395661` = success; artifact `firmware` 596,480 B.
+- **HW-VERIFIED ✅ (2026-09-28):** flashed as fw13; all 12 states render cleanly
+  and auto-cycle every 5s on the on-board SSD1306 (user confirmed "都有了").
+  The mono prototype of the "12 Core Screen States" is complete on real
+  hardware. Next: per-screen layout tweaks on request, then port to the colour
+  1.9" ST7789 panel when it + the XIAO nRF52840 Plus arrive.
 
 ## Phase 5 — MacBook communication  ⏳ NOT STARTED
