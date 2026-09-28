@@ -70,6 +70,16 @@ Completed:
   D9→`n` (No), D10→`o` (Open). Test string observed: `vvvvyyyyynnnnnnooo`.
   All 4 buttons + the expansion-board pin re-allocation are confirmed on real hardware.
 - Encoder rotation (→ mouse-wheel scroll) still ⛔ NOT TESTED — encoder not in hand.
+- **BLE HW-VERIFIED on ai_companion firmware ✅ (2026-09-28):** the device
+  advertises as **"AI Companion"**, pairs + connects to macOS, and delivers HID
+  **input over BLE** (proven with a temporary `&out OUT_TOG` build: switch the
+  endpoint to BLE with USB as power only → a jumpered key still typed on the Mac,
+  so it went wirelessly). Gotchas solved: old `ZMK Tester` bond survives a UF2
+  flash (cleared via a temporary `&bt BT_CLR`); macOS caches the BLE name by
+  address (scan list shows the old name until you connect / `sudo pkill
+  bluetoothd`); ZMK routes HID to USB by default when USB is plugged (force BLE
+  with `&out OUT_BLE`/`OUT_TOG` or run on battery). Done on a throwaway
+  `ble-test` branch (not merged); main keeps the clean V/Y/N/O keymap.
 
 - Proposed + user-approved pin allocation: D0 Voice / D1 Yes / D2 No / D3 Open /
   D7 encoder-A(SIGA) / D8 encoder-B(SIGB); D4/D5 reserved for I2C
