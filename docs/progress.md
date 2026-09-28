@@ -68,16 +68,21 @@ Completed:
   (OLED SSD1306 + DRV2605L), D9 reserved DRV2605L-EN, D10 spare.
 - Authored `boards/shields/ai_companion/` (overlay, keymap, conf, Kconfig.*,
   zmk.yml) to verified ZMK v0.3 patterns (`reviung5` + `tester_xiao`).
-- Test keycodes: buttons V/Y/N/O, encoder rotate = Vol ±, encoder push = Mute.
-- **Compilation verified (BUILD)**: run #7 `36361840680`, ai_companion build job
-  = success; merged `firmware` artifact 278,793 B (tester + ai_companion uf2s).
+- Mapping: buttons V/Y/N/O (placeholder test keycodes), encoder push = P
+  (placeholder), **encoder rotate = mouse-wheel scroll** (`&msc SCRL_UP/DOWN`).
+  Scroll is the REAL function: it scrolls the focused Mac window (the Optimus
+  session window), handled natively by macOS HID — no host app needed.
+- **Compilation verified (BUILD)**: run `36362523013` (scroll version),
+  ai_companion build job = success (also re-verified all tester_xiao + merge
+  jobs). Earlier run #7 `36361840680` was the pre-scroll (Vol±) build.
 
 Parts status: XIAO ✅, expansion board + OLED ✅, DRV2605L + motor ✅ in hand;
 physical buttons ⛔ (test via jumper-to-GND), rotary encoder ⛔ (not yet arrived).
 
 Next executable task (user, hardware):
 - Flash `seeeduino_xiao_ble-ai_companion.uf2`; touch D0..D3 to GND → expect
-  V/Y/N/O typed. Encoder rotate/push verified once the knob arrives.
+  V/Y/N/O typed; touch D6 to GND → expect P typed (encoder push, testable now).
+  Encoder rotation (→ scroll) verified once the physical knob arrives.
 
 Known risk (Phase 4): DRV2605L has no ZMK/Zephyr 3.5 driver → will need a small
 custom I2C driver / behaviour. OLED (SSD1306) is natively supported.

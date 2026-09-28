@@ -73,10 +73,10 @@ Jobs (all success): `Fetch Build Keyboards`, `Build (seeeduino_xiao_ble, tester_
 | Item | Level reached | Evidence |
 |------|---------------|----------|
 | Shield authored to verified v0.3 patterns | ✅ CODE-REVIEW | overlay/keymap modelled on `reviung5` (direct kscan + `alps,ec11`) + `tester_xiao` (`seeed_xiao` / `&xiao_d`) |
-| `seeeduino_xiao_ble` + `ai_companion` compiles | ✅ BUILD | run #7 `36361840680`, job **Build (seeeduino_xiao_ble, ai_companion, …) = success**; merged `firmware` artifact 278,793 B (both uf2s) |
+| `seeeduino_xiao_ble` + `ai_companion` compiles | ✅ BUILD | run `36362523013`, job **Build (seeeduino_xiao_ble, ai_companion, …) = success** (encoder=scroll version) |
 | Buttons type test keycodes (D0..D3 → V/Y/N/O) | ⛔ NOT TESTED | user to flash + jump each pin to GND |
-| Encoder push (D6 → Mute) | ⛔ NOT TESTED | encoder not yet in hand |
-| Encoder rotate (D7/D8 → Vol ±) | ⛔ NOT TESTED | encoder not yet in hand |
+| Encoder push (D6 → P) | ⛔ NOT TESTED | testable now via jumper D6→GND |
+| Encoder rotate (D7/D8 → mouse-wheel scroll) | ⛔ NOT TESTED | REAL function (scrolls focused Mac window); encoder not yet in hand |
 | BLE + USB on ai_companion firmware | ✅ BUILD | same board as tester → board conf enables BLE+USB; device name "AI Companion" |
 
 > Pin allocation (see `boards/shields/ai_companion/ai_companion.overlay`):
