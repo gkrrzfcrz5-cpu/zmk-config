@@ -87,7 +87,7 @@ Completed:
 Open items (need the user, hardware):
 - OLED source: standalone I2C module vs reuse the expansion board's OLED (the
   discrete choice means the board's soldered-on OLED isn't directly usable).
-- Motor type: ERM vs LRA (for the DRV2605L config; default assume ERM).
+- Motor type: **ERM** (confirmed 2026-09-28) → DRV2605L will use an ERM library.
 
 Parts status: XIAO ✅, expansion board + OLED ✅, DRV2605L + motor ✅ in hand;
 physical buttons ⛔ (test via jumper-to-GND), rotary encoder ⛔ (not yet arrived).

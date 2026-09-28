@@ -98,8 +98,8 @@ high on the board (R2), so no enable GPIO is needed. On-board 10k I2C pull-ups.
 | OUT+ | motor + | |
 | OUT- | motor − | motor is non-polar; swapping only flips spin dir |
 
-> Open item: motor type (**ERM** vs **LRA**) — needed for the DRV2605L config.
-> Default assumption = ERM (typical small vibration motor) until confirmed.
+> Motor type: **ERM** (confirmed by the user, 2026-09-28). The DRV2605L will be
+> configured for ERM (an ERM effect library; no LRA auto-resonance).
 
 ## Shared I2C bus (D4 / D5)
 OLED (0x3C) and DRV2605L (0x5A) sit on the same two wires, distinguished by
@@ -114,4 +114,3 @@ more unless a bus scan shows problems.
 
 ## Open items (need the user)
 1. OLED source: standalone I2C module, or reuse the expansion board's OLED?
-2. Motor type: ERM or LRA?
