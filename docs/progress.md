@@ -112,6 +112,16 @@ Known risk (Phase 4): DRV2605L has no ZMK/Zephyr 3.5 driver → will need a smal
 custom I2C driver / behaviour. OLED (SSD1306) is natively supported.
 ## Phase 4 — Display + haptic  ⏳ IN PROGRESS (2026-09-28)
 Completed:
+- **Encoder rotation → scroll HW-VERIFIED ✅ (2026-09-28):** turning the encoder
+  scrolls the focused macOS window, correct direction (run `36381989367`).
+  Debug path: rotation hardware first proven with a volume-diagnostic build
+  (`&inc_dec_kp C_VOLUME_UP/DOWN` moved macOS volume), isolating HW from the
+  scroll path. Root cause of "no scroll": `&msc` is `zmk,behavior-input-two-axis`,
+  a VELOCITY behavior (distance = speed x hold-time, accrued per trigger-period
+  tick); a sensor-rotate tap (5ms) is shorter than the 16ms tick → ~0 movement.
+  Fix in the keymap: `#define ZMK_POINTING_DEFAULT_SCRL_VAL 60` before pointing.h,
+  `tap-ms = <50>` on the sensor-rotate, and override `&msc` to trigger-period-ms
+  10 / time-to-max-speed-ms 0 / delay-ms 0 → ~3 wheel units per detent (tunable).
 - **DRV2605L haptic BUILD ✅ (2026-09-28):** implemented a custom out-of-tree ZMK
   behavior `aic,behavior-haptic` (`src/behavior_haptic.c`) that fires a one-shot
   ERM buzz (effect 47, "Buzz 1 - 100%") via raw I2C register writes — there is no

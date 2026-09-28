@@ -76,7 +76,7 @@ Jobs (all success): `Fetch Build Keyboards`, `Build (seeeduino_xiao_ble, tester_
 | `seeeduino_xiao_ble` + `ai_companion` compiles | ✅ BUILD | run `36367806134` (expansion-board pins), job **Build (…, ai_companion, …) = success** |
 | UF2 flashed to board (via bootloader volume) | ✅ FLASH | copied to `/Volumes/XIAO-SENSE`; volume auto-ejected + rebooted; re-enumerated as USB **"AI Companion"** (VID 0x1D50 / PID 0x615E) |
 | Buttons type test keycodes (D0/D2/D9/D10 → V/Y/N/O) | ✅ HW-VERIFIED | user jumpered each pin to GND → typed `v`/`y`/`n`/`o` respectively (2026-09-28, over USB HID) |
-| Encoder rotate (D7/D6 → mouse-wheel scroll) | ⛔ NOT TESTED | REAL function (scrolls focused Mac window); encoder not yet in hand |
+| Encoder rotate (D7/D6 → mouse-wheel scroll) | ✅ HW-VERIFIED | 2026-09-28: turning scrolls the focused macOS window, correct direction (run `36381989367`). Rotation hardware first proven via a volume-diagnostic build (`&inc_dec_kp C_VOLUME_UP/DOWN` changed macOS volume). Scroll then fixed: `&msc` is a velocity behavior so a sensor-rotate tap accrued ~0 → raised `ZMK_POINTING_DEFAULT_SCRL_VAL`=60, `tap-ms`=50, `&msc` trigger-period-ms=10 / time-to-max-speed-ms=0 / delay-ms=0 (~3 wheel units per detent). |
 | BLE + USB on ai_companion firmware | ✅ BUILD | same board as tester → board conf enables BLE+USB; device name "AI Companion" |
 
 > Pin allocation (expansion-board mount; see `docs/wiring.md`):
