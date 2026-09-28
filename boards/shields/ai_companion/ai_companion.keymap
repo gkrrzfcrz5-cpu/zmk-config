@@ -1,0 +1,51 @@
+/*
+ * Copyright (c) 2026 The AI Companion Contributors
+ * SPDX-License-Identifier: MIT
+ *
+ * ai_companion keymap.
+ *
+ * Encoder rotation = REAL function: mouse-wheel scroll (scroll the focused
+ * window on the Mac, e.g. the Optimus session window). This is a generic HID
+ * scroll, handled natively by macOS — no host app required.
+ *   Encoder turn -> right = Scroll Up, left = Scroll Down
+ *
+ * The 4 buttons use PLACEHOLDER test keycodes for wiring verification; Phase 5
+ * replaces these with the real Mac <-> device signalling:
+ *   Voice -> V,  Yes -> Y,  No -> N,  Open -> O
+ *
+ * The rotary encoder is a 4-pin module (SIGA/SIGB/VCC/GND) whose push switch is
+ * not routed to the header, so only rotation is used (no encoder-push button).
+ *
+ * How to verify (no physical buttons needed): open any text field, then briefly
+ * touch each pin to GND with a jumper -> the matching letter is typed. Once the
+ * physical encoder is fitted, turning it scrolls the focused window.
+ */
+
+#include <behaviors.dtsi>
+#include <dt-bindings/zmk/keys.h>
+#include <dt-bindings/zmk/pointing.h>
+
+/ {
+    behaviors {
+        // Sensor-rotate behaviour: 1st binding = clockwise, 2nd = counter-clockwise.
+        // Direction can be swapped after testing with the real encoder + macOS
+        // "natural scrolling" setting.
+        encoder_scroll: encoder_scroll {
+            compatible = "zmk,behavior-sensor-rotate";
+            #sensor-binding-cells = <0>;
+            bindings = <&msc SCRL_UP>, <&msc SCRL_DOWN>;
+        };
+    };
+
+    keymap {
+        compatible = "zmk,keymap";
+
+        default_layer {
+            display-name = "AICompanion";
+            bindings = <
+                &kp V   &kp Y   &kp N   &kp O
+            >;
+            sensor-bindings = <&encoder_scroll>;
+        };
+    };
+};

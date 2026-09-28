@@ -68,4 +68,23 @@ Jobs (all success): `Fetch Build Keyboards`, `Build (seeeduino_xiao_ble, tester_
 
 ---
 
+## Phase 3 — ai_companion shield (4 buttons + EC11 encoder)
+
+| Item | Level reached | Evidence |
+|------|---------------|----------|
+| Shield authored to verified v0.3 patterns | ✅ CODE-REVIEW | overlay/keymap modelled on `reviung5` (direct kscan + `alps,ec11`) + `tester_xiao` (`seeed_xiao` / `&xiao_d`) |
+| `seeeduino_xiao_ble` + `ai_companion` compiles | ✅ BUILD | run `36367806134` (expansion-board pins), job **Build (…, ai_companion, …) = success** |
+| UF2 flashed to board (via bootloader volume) | ✅ FLASH | copied to `/Volumes/XIAO-SENSE`; volume auto-ejected + rebooted; re-enumerated as USB **"AI Companion"** (VID 0x1D50 / PID 0x615E) |
+| Buttons type test keycodes (D0/D2/D9/D10 → V/Y/N/O) | ✅ HW-VERIFIED | user jumpered each pin to GND → typed `v`/`y`/`n`/`o` respectively (2026-09-28, over USB HID) |
+| Encoder rotate (D7/D6 → mouse-wheel scroll) | ⛔ NOT TESTED | REAL function (scrolls focused Mac window); encoder not yet in hand |
+| BLE + USB on ai_companion firmware | ✅ BUILD | same board as tester → board conf enables BLE+USB; device name "AI Companion" |
+
+> Pin allocation (expansion-board mount; see `docs/wiring.md`):
+> D0 Voice (Grove A0/D0), D2 Yes, D9 No, D10 Open (SD lines reused, no SD card),
+> D7 Enc-SIGA, D6 Enc-SIGB (Grove UART); D4/D5 I2C (on-board OLED + DRV2605L via
+> Grove I2C). D1 (on-board button) + D3 (buzzer) avoided, D8 spare. On-board pin
+> usage confirmed from the Seeed wiki source.
+
+---
+
 _No results above are assumed. Rows move to ✅/❌ only when the evidence exists._

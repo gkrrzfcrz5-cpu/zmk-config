@@ -20,3 +20,8 @@ include:
   - board: seeeduino_xiao_ble
     shield: tester_xiao
     artifact-name: seeeduino_xiao_ble-tester_xiao-ble
+  # Phase 3: custom AI Companion shield (4 buttons + EC11 encoder + push).
+  # Same board -> also BLE-enabled + USB HID. Test keycodes: V/Y/N/O + vol/mute.
+  - board: seeeduino_xiao_ble
+    shield: ai_companion
+    artifact-name: seeeduino_xiao_ble-ai_companion
