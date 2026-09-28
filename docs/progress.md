@@ -110,5 +110,20 @@ Next executable task (user, hardware):
 
 Known risk (Phase 4): DRV2605L has no ZMK/Zephyr 3.5 driver → will need a small
 custom I2C driver / behaviour. OLED (SSD1306) is natively supported.
-## Phase 4 — Display + haptic  ⏳ NOT STARTED
+## Phase 4 — Display + haptic  ⏳ IN PROGRESS (2026-09-28)
+Completed:
+- **OLED BUILD ✅ (2026-09-28):** added the expansion board's on-board SSD1306
+  (128x64 @ 0x3C) to the ai_companion shield. Overlay = `ssd1306@3c` on
+  `&xiao_i2c` (= &i2c0, D4/D5), `compatible = "solomon,ssd1306fb"`,
+  multiplex-ratio 63, all required props; `chosen zephyr,display = &oled`.
+  conf = `CONFIG_ZMK_DISPLAY=y` + LVGL 1bpp mono settings. Modelled verbatim on
+  ZMK v0.3 kyria. CI run `36370715642` = success; artifact `firmware` 359,942 B.
+  Uses the built-in ZMK status screen (layer/battery/output widgets).
+
+Next executable task (user, hardware):
+- Plug XIAO into the expansion board, flash the new uf2 → confirm the OLED lights
+  up and shows the status screen (HW-VERIFY).
+
+Then (me): DRV2605L haptic — needs a small custom I2C driver (no ZMK/Zephyr 3.5
+driver). Motor = ERM. Isolated dev → BUILD → FLASH → HW-verify (motor buzzes).
 ## Phase 5 — MacBook communication  ⏳ NOT STARTED

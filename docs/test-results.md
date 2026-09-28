@@ -87,4 +87,14 @@ Jobs (all success): `Fetch Build Keyboards`, `Build (seeeduino_xiao_ble, tester_
 
 ---
 
+## Phase 4 — Display + haptic
+
+| Item | Level reached | Evidence |
+|------|---------------|----------|
+| On-board SSD1306 OLED (128x64 @ 0x3C) compiles into ai_companion | ✅ BUILD | run `36370715642`, job **Build (…, ai_companion, …) = success**; artifact `firmware` 359,942 B. Node modelled on ZMK v0.3 kyria (`solomon,ssd1306fb`, mux-ratio 63) on `&xiao_i2c` (D4/D5). |
+| OLED shows the built-in status screen | ⛔ NOT TESTED | needs flash + XIAO plugged into expansion board (OLED is on-board) |
+| DRV2605L haptic (motor vibrates) | ⛔ NOT STARTED | no ZMK/Zephyr 3.5 driver → custom I2C init needed |
+
+---
+
 _No results above are assumed. Rows move to ✅/❌ only when the evidence exists._
