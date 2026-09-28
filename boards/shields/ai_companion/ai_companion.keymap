@@ -13,10 +13,10 @@
  * replaces these with the real Mac <-> device signalling:
  *   Voice -> V,  Yes -> Y,  No -> N,  Open -> O
  *
- * TEMPORARY (Phase 4b HW test): the Open button (D10) is bound to &haptic so a
- * press fires the DRV2605L motor buzz, to verify the haptic hardware. Restore
- * `&kp O` after the motor is HW-verified; the haptic will be driven by host
- * commands in Phase 5, not by a physical button.
+ * The DRV2605L haptic motor is HW-verified (2026-09-28); it will be driven by
+ * host commands in Phase 5, not by a physical button, so the Open button is
+ * bound to its normal placeholder keycode (&kp O). The `&haptic` behavior stays
+ * defined in the devicetree (node drv2605@5a) ready for Phase 5 host control.
  *
  * The rotary encoder is a 4-pin module (SIGA/SIGB/VCC/GND) whose push switch is
  * not routed to the header, so only rotation is used (no encoder-push button).
@@ -75,7 +75,7 @@
         default_layer {
             display-name = "AICompanion";
             bindings = <
-                &kp V   &kp Y   &kp N   &haptic
+                &kp V   &kp Y   &kp N   &kp O
             >;
             // Encoder rotation = mouse-wheel scroll (real function: scroll the
             // focused Mac/Optimus window). Rotation hardware HW-verified 2026-09-28

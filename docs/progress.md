@@ -110,8 +110,15 @@ Next executable task (user, hardware):
 
 Known risk (Phase 4): DRV2605L has no ZMK/Zephyr 3.5 driver → will need a small
 custom I2C driver / behaviour. OLED (SSD1306) is natively supported.
-## Phase 4 — Display + haptic  ⏳ IN PROGRESS (2026-09-28)
+## Phase 4 — Display + haptic  ✅ HW-VERIFIED (2026-09-28)
 Completed:
+- **DRV2605L haptic HW-VERIFIED ✅ (2026-09-28):** with the Open button (D10)
+  temporarily bound to `&haptic`, a press fired a clear ERM buzz on the real
+  motor. Root cause of an initial "no buzz": the hand-wired DRV2605L had
+  **SDA/SCL swapped** (the OLED kept working on the same I2C bus and VIN read
+  3.3 V — the tell-tale signature of a swapped SDA/SCL on the haptic board);
+  fixed by `SDA→D4`, `SCL→D5`. The Open button is now restored to `&kp O`; the
+  haptic will be host-driven in Phase 5.
 - **Encoder rotation → scroll HW-VERIFIED ✅ (2026-09-28):** turning the encoder
   scrolls the focused macOS window, correct direction (run `36381989367`).
   Debug path: rotation hardware first proven with a volume-diagnostic build
@@ -133,8 +140,7 @@ Completed:
   its own `app` target) so `<drivers/behavior.h>` resolves;
   (2) init at `CONFIG_APPLICATION_INIT_PRIORITY` (after the I2C controller) so
   the build-time `check_init_priorities` passes. CI run `36375309425` = success;
-  artifact `firmware` 360,157 B. **TEMPORARY:** the Open button (D10) is bound to
-  `&haptic` for HW testing — restore `&kp O` after the motor is HW-verified.
+  artifact `firmware` 360,157 B. (HW-verified above.)
 - **OLED HW-VERIFIED ✅ (2026-09-28):** flashed to the XIAO on the expansion
   board; the on-board SSD1306 shows the ZMK built-in status screen (battery
   widget + "AI Compani…" device name). It blanks on idle (ZMK `blank-on-idle`
@@ -149,9 +155,8 @@ Completed:
   ZMK v0.3 kyria. CI run `36370715642` = success; artifact `firmware` 359,942 B.
   Uses the built-in ZMK status screen (layer/battery/output widgets).
 
-Next executable task (user, hardware):
-- Download the `firmware` artifact from run `36375309425`, flash the ai_companion
-  uf2, wire the DRV2605L (Grove I2C: VIN→3V3, GND→GND, SDA→D4, SCL→D5) with an
-  ERM motor on OUT+/OUT−, press the Open button (D10) → motor buzzes (HW-VERIFY).
-- After haptic HW-verify: restore `&kp O` for the Open button; merge Phase 4.
+Next executable task:
+- Phase 5: draft the device↔host interface contract (English, shareable) and
+  agree the transport (BLE GATT vs USB HID vs USB CDC) + message schema with the
+  co-working Mac/AI-side team, then implement the device side.
 ## Phase 5 — MacBook communication  ⏳ NOT STARTED

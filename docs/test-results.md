@@ -93,7 +93,7 @@ Jobs (all success): `Fetch Build Keyboards`, `Build (seeeduino_xiao_ble, tester_
 |------|---------------|----------|
 | On-board SSD1306 OLED (128x64 @ 0x3C) compiles into ai_companion | ✅ BUILD | run `36370715642`, job **Build (…, ai_companion, …) = success**; artifact `firmware` 359,942 B. Node modelled on ZMK v0.3 kyria (`solomon,ssd1306fb`, mux-ratio 63) on `&xiao_i2c` (D4/D5). |
 | OLED shows the built-in status screen | ✅ HW-VERIFIED | flashed; XIAO on expansion board; screen shows battery widget + "AI Compani…" (device name). Blanks on idle (ZMK `blank-on-idle` default for SSD1306), wakes on input activity. (2026-09-28) |
-| DRV2605L haptic (motor vibrates) | ✅ BUILD | run `36375309425`, job **Build (…, ai_companion, …) = success**; artifact `firmware` 360,157 B. Custom out-of-tree ZMK behavior `aic,behavior-haptic` (raw I2C register writes; no Zephyr DRV2605 driver). Fixes en route: add ZMK `app/include` to the module include path; init at `CONFIG_APPLICATION_INIT_PRIORITY` so `check_init_priorities` passes. **Not yet flashed / HW-tested.** |
+| DRV2605L haptic (motor vibrates) | ✅ HW-VERIFIED | run `36375309425` built the custom out-of-tree ZMK behavior `aic,behavior-haptic` (raw I2C register writes; no Zephyr DRV2605 driver). Fixes en route: add ZMK `app/include` to the module include path; init at `CONFIG_APPLICATION_INIT_PRIORITY` so `check_init_priorities` passes. **HW-VERIFIED 2026-09-28:** with the Open button temporarily bound to `&haptic`, a press fired a clear ERM buzz. Root cause of an initial "no buzz": the hand-wired DRV2605L had **SDA/SCL swapped** (OLED kept working on the same bus, VIN read 3.3 V — the swap signature); fixed by `SDA→D4`, `SCL→D5`. Open button then restored to `&kp O`. |
 
 ---
 
