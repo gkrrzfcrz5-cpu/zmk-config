@@ -61,6 +61,25 @@ Blocked / needs user (hardware):
 Next executable task:
 - Phase 3: research XIAO pinout and propose the `ai_companion` shield GPIO
   allocation (4 buttons + rotary encoder + push) for review BEFORE implementing.
-## Phase 3 — ai_companion shield  ⏳ NOT STARTED
+## Phase 3 — ai_companion shield  ⏳ IN PROGRESS (2026-09-28)
+Completed:
+- Proposed + user-approved pin allocation: D0 Voice / D1 Yes / D2 No / D3 Open /
+  D6 encoder-push / D7 encoder-A / D8 encoder-B; D4/D5 reserved for I2C
+  (OLED SSD1306 + DRV2605L), D9 reserved DRV2605L-EN, D10 spare.
+- Authored `boards/shields/ai_companion/` (overlay, keymap, conf, Kconfig.*,
+  zmk.yml) to verified ZMK v0.3 patterns (`reviung5` + `tester_xiao`).
+- Test keycodes: buttons V/Y/N/O, encoder rotate = Vol ±, encoder push = Mute.
+- **Compilation verified (BUILD)**: run #7 `36361840680`, ai_companion build job
+  = success; merged `firmware` artifact 278,793 B (tester + ai_companion uf2s).
+
+Parts status: XIAO ✅, expansion board + OLED ✅, DRV2605L + motor ✅ in hand;
+physical buttons ⛔ (test via jumper-to-GND), rotary encoder ⛔ (not yet arrived).
+
+Next executable task (user, hardware):
+- Flash `seeeduino_xiao_ble-ai_companion.uf2`; touch D0..D3 to GND → expect
+  V/Y/N/O typed. Encoder rotate/push verified once the knob arrives.
+
+Known risk (Phase 4): DRV2605L has no ZMK/Zephyr 3.5 driver → will need a small
+custom I2C driver / behaviour. OLED (SSD1306) is natively supported.
 ## Phase 4 — Display + haptic  ⏳ NOT STARTED
 ## Phase 5 — MacBook communication  ⏳ NOT STARTED

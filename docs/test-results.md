@@ -68,4 +68,23 @@ Jobs (all success): `Fetch Build Keyboards`, `Build (seeeduino_xiao_ble, tester_
 
 ---
 
+## Phase 3 — ai_companion shield (4 buttons + EC11 encoder)
+
+| Item | Level reached | Evidence |
+|------|---------------|----------|
+| Shield authored to verified v0.3 patterns | ✅ CODE-REVIEW | overlay/keymap modelled on `reviung5` (direct kscan + `alps,ec11`) + `tester_xiao` (`seeed_xiao` / `&xiao_d`) |
+| `seeeduino_xiao_ble` + `ai_companion` compiles | ✅ BUILD | run #7 `36361840680`, job **Build (seeeduino_xiao_ble, ai_companion, …) = success**; merged `firmware` artifact 278,793 B (both uf2s) |
+| Buttons type test keycodes (D0..D3 → V/Y/N/O) | ⛔ NOT TESTED | user to flash + jump each pin to GND |
+| Encoder push (D6 → Mute) | ⛔ NOT TESTED | encoder not yet in hand |
+| Encoder rotate (D7/D8 → Vol ±) | ⛔ NOT TESTED | encoder not yet in hand |
+| BLE + USB on ai_companion firmware | ✅ BUILD | same board as tester → board conf enables BLE+USB; device name "AI Companion" |
+
+> Pin allocation (see `boards/shields/ai_companion/ai_companion.overlay`):
+> D0 Voice, D1 Yes, D2 No, D3 Open, D6 Enc-push, D7 Enc-A, D8 Enc-B;
+> D4/D5 reserved I2C (OLED + DRV2605L), D9 reserved DRV2605L-EN, D10 spare.
+> EC11 A/B use internal pull-ups, so an unconnected encoder is stable (no
+> spurious events) — safe to build/flash before the knob arrives.
+
+---
+
 _No results above are assumed. Rows move to ✅/❌ only when the evidence exists._
