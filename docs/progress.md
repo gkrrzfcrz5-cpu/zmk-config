@@ -73,28 +73,32 @@ Completed:
   Scroll is the REAL function: it scrolls the focused Mac window (the Optimus
   session window), handled natively by macOS HID — no host app needed.
 - **Hardware bring-up decisions (2026-09-28, from the user's parts):**
-  - Mounting = **discrete wiring** (jumpers straight to XIAO; expansion board
-    NOT used as carrier). Full pin freedom, matches the firmware.
+  - Mounting = **plug into the Seeed XIAO Expansion Board** (to use its on-board
+    OLED). The board pre-commits pins (confirmed from the Seeed wiki source):
+    D1 user button, D2 SD CS, D3 buzzer, D4/D5 I2C (OLED+RTC), D8/D9/D10 SD SPI.
+  - Re-allocated to avoid conflicts (no SD card / no buzzer used): buttons
+    Voice=D0 (Grove A0/D0), Yes=D2, No=D9, Open=D10 (SD lines reused); encoder
+    SIGA=D7, SIGB=D6 (Grove UART); D4/D5 I2C = OLED (on-board) + DRV2605L
+    (Grove I2C). D1/D3 avoided, D8 spare.
   - DRV2605L = **Adafruit breakout** (schematic confirmed): EN tied high on-board
-    → dropped the D9 EN reservation; motor on OUT+/OUT-. "Just vibrate" only.
-  - Encoder = **4-pin module** (SIGA/SIGB/VCC/GND); push switch is NOT on the
-    header → **encoder push dropped**, rotation only. Firmware updated to 4
-    buttons + rotation (removed D6 kscan key, 4-col transform, removed `&kp P`).
-  - Full wiring recorded in `docs/wiring.md`.
-- Earlier BUILD (BUILD): run `36362523013` (5-key scroll version) succeeded;
-  a rebuild is pending after the 4-key / rotation-only change.
+    → no enable GPIO; motor on OUT+/OUT-. Motor = **ERM** (confirmed).
+  - Encoder = **4-pin module** (SIGA/SIGB/VCC/GND), no push switch on header →
+    **rotation only** (no encoder-push). VCC must be 3V3 (on-board 3.3k pull-ups).
+  - Full wiring recorded in `docs/wiring.md` (expansion-board version).
+- Earlier BUILD: run `36366129167` (4-key, discrete-wiring pins) succeeded; a
+  rebuild is pending after the expansion-board pin re-allocation.
 
 Open items (need the user, hardware):
-- OLED source: standalone I2C module vs reuse the expansion board's OLED (the
-  discrete choice means the board's soldered-on OLED isn't directly usable).
-- Motor type: **ERM** (confirmed 2026-09-28) → DRV2605L will use an ERM library.
+- None blocking. OLED source resolved (use the expansion board's on-board OLED);
+  motor type resolved (ERM).
 
 Parts status: XIAO ✅, expansion board + OLED ✅, DRV2605L + motor ✅ in hand;
 physical buttons ⛔ (test via jumper-to-GND), rotary encoder ⛔ (not yet arrived).
 
 Next executable task (user, hardware):
-- Flash `seeeduino_xiao_ble-ai_companion.uf2`; touch D0..D3 to GND → expect
-  V/Y/N/O typed. Encoder rotation (→ scroll) verified once the knob arrives.
+- Flash `seeeduino_xiao_ble-ai_companion.uf2`; touch D0 / D2 / D9 / D10 to GND →
+  expect V / Y / N / O typed. Encoder rotation (→ scroll) verified once the knob
+  arrives.
 
 Known risk (Phase 4): DRV2605L has no ZMK/Zephyr 3.5 driver → will need a small
 custom I2C driver / behaviour. OLED (SSD1306) is natively supported.

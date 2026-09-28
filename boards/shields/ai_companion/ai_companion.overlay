@@ -3,19 +3,25 @@
  * SPDX-License-Identifier: MIT
  *
  * ai_companion shield for the Seeed XIAO nRF52840 (seeed_xiao interconnect).
- * Phase 3: 4 push buttons + EC11 rotary encoder (rotation + push switch).
+ * Phase 3: 4 push buttons + EC11 rotary encoder (rotation only).
+ *
+ * Mounting: the XIAO plugs into the Seeed XIAO Expansion Board so its on-board
+ * 0.96" OLED (I2C, D4/D5) can be used. That board pre-commits several pins on its
+ * own PCB (verified from the Seeed wiki source):
+ *   D1 = on-board user button, D2 = microSD CS, D3/A3 = passive buzzer,
+ *   D4/D5 = I2C (OLED + RTC), D8/D9/D10 = microSD SPI (SCK/MISO/MOSI).
+ * We use no SD card and no buzzer, so the SD lines are free to reuse; D1 and D3
+ * are avoided.
  *
  * Pin allocation (XIAO digital pins, referenced as `&xiao_d N` = XIAO pin DN):
- *   D0  Voice button        (direct GPIO, active-low, internal pull-up)
- *   D1  Yes   button        (direct GPIO, active-low, internal pull-up)
- *   D2  No    button        (direct GPIO, active-low, internal pull-up)
- *   D3  Open  button        (direct GPIO, active-low, internal pull-up)
- *   D7  Encoder A phase / SIGA (EC11)
- *   D8  Encoder B phase / SIGB (EC11)
- *   D4/D5 reserved for I2C  (OLED SSD1306 + DRV2605L haptic) - Phase 4
- *   D6  spare (was encoder-push; the user's encoder module does not break out SW)
- *   D9  spare (DRV2605L breakout ties EN high on-board, no GPIO needed)
- *   D10 spare
+ *   D0  Voice button   (Grove A0/D0)     direct GPIO, active-low, internal pull-up
+ *   D2  Yes   button   (SD CS, unused)   direct GPIO, active-low, internal pull-up
+ *   D9  No    button   (SD MISO, unused) direct GPIO, active-low, internal pull-up
+ *   D10 Open  button   (SD MOSI, unused) direct GPIO, active-low, internal pull-up
+ *   D7  Encoder A / SIGA (Grove UART)    EC11
+ *   D6  Encoder B / SIGB (Grove UART)    EC11
+ *   D4/D5 I2C (Grove IIC): OLED SSD1306 (on-board) + DRV2605L haptic - Phase 4
+ *   D1  avoided (on-board user button), D3 avoided (buzzer), D8 spare (SD SCK)
  *
  * Encoder: the user's module is a 4-pin breakout (SIGA/SIGB/VCC/GND) with the
  * push switch NOT routed to the header, so only rotation is used. VCC -> 3V3
@@ -51,17 +57,17 @@
         debounce-press-ms = <5>;
         debounce-release-ms = <5>;
         input-gpios
-            = <&xiao_d 0 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>   // Voice
-            , <&xiao_d 1 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>   // Yes
-            , <&xiao_d 2 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>   // No
-            , <&xiao_d 3 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>   // Open
+            = <&xiao_d 0  (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>   // Voice
+            , <&xiao_d 2  (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>   // Yes
+            , <&xiao_d 9  (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>   // No
+            , <&xiao_d 10 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>   // Open
             ;
     };
 
     encoder: encoder {
         compatible = "alps,ec11";
         a-gpios = <&xiao_d 7 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
-        b-gpios = <&xiao_d 8 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
+        b-gpios = <&xiao_d 6 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
         steps = <80>;
         status = "okay";
     };
