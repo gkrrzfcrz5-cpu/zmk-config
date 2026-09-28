@@ -73,7 +73,7 @@ Jobs (all success): `Fetch Build Keyboards`, `Build (seeeduino_xiao_ble, tester_
 | Item | Level reached | Evidence |
 |------|---------------|----------|
 | Shield authored to verified v0.3 patterns | ✅ CODE-REVIEW | overlay/keymap modelled on `reviung5` (direct kscan + `alps,ec11`) + `tester_xiao` (`seeed_xiao` / `&xiao_d`) |
-| `seeeduino_xiao_ble` + `ai_companion` compiles | ⏳ BUILD PENDING | rebuild after 4-button / rotation-only change (encoder push dropped) |
+| `seeeduino_xiao_ble` + `ai_companion` compiles | ✅ BUILD | run `36366129167` (4-button / rotation-only), job **Build (…, ai_companion, …) = success** |
 | Buttons type test keycodes (D0..D3 → V/Y/N/O) | ⛔ NOT TESTED | user to flash + jump each pin to GND |
 | Encoder rotate (D7/D8 → mouse-wheel scroll) | ⛔ NOT TESTED | REAL function (scrolls focused Mac window); encoder not yet in hand |
 | BLE + USB on ai_companion firmware | ✅ BUILD | same board as tester → board conf enables BLE+USB; device name "AI Companion" |
