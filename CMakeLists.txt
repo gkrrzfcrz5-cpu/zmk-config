@@ -35,3 +35,14 @@ if(CONFIG_ZMK_BEHAVIOR_HAPTIC)
                     "<drivers/behavior.h> will not resolve")
   endif()
 endif()
+
+# Custom LVGL status screen (mono prototype of the 12-screen UI). Must be added
+# to ZMK's own `app` target (NOT a zephyr_library) so the strong
+# zmk_display_status_screen() here overrides ZMK's weak stub in
+# app/src/display/main.c — a lazily-linked archive member would not win the
+# override. target_sources(app ...) also inherits app's PRIVATE include dir, so
+# <lvgl.h> resolves. Guarded by ZMK's own choice symbol: only the ai_companion
+# shield sets it (ai_companion.conf); the tester_xiao build skips this source.
+if(CONFIG_ZMK_DISPLAY_STATUS_SCREEN_CUSTOM)
+  target_sources(app PRIVATE src/status_screen.c)
+endif()
