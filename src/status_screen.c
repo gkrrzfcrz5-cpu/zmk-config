@@ -21,6 +21,7 @@
  *   - LVGL is v8.3: lv_timer, lv_bar and the LV_SYMBOL_* glyphs are available.
  */
 
+#include <zephyr/kernel.h>
 #include <lvgl.h>
 
 /* Declared by ZMK in app/include/zmk/display/status_screen.h. Declared locally
