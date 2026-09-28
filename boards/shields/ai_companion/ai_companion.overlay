@@ -41,6 +41,7 @@
     chosen {
         zmk,kscan = &kscan0;
         zmk,matrix-transform = &default_transform;
+        zephyr,display = &oled;   // Phase 4: on-board SSD1306 OLED
     };
 
     default_transform: keymap_transform_0 {
@@ -76,5 +77,49 @@
         compatible = "zmk,keymap-sensors";
         sensors = <&encoder>;
         triggers-per-rotation = <20>;
+    };
+};
+
+/*
+ * Phase 4 — on-board OLED (Seeed XIAO Expansion Board, SSD1306 128x64 @ 0x3C).
+ *
+ * The expansion board hard-wires the OLED to the XIAO's I2C bus (D4=SDA/D5=SCL).
+ * `&xiao_i2c` is the seeed_xiao interconnect label for that bus (= &i2c0 on the
+ * seeeduino_xiao_ble board; pinctrl maps TWIM_SDA=P0.04/D4, TWIM_SCL=P0.05/D5).
+ *
+ * Node modelled verbatim on the ZMK v0.3 128x64 reference shield
+ * (app/boards/shields/kyria/kyria_common.dtsi): compatible "solomon,ssd1306fb",
+ * multiplex-ratio 63 for 128x64. All five SSD1306-required props
+ * (segment-offset/page-offset/display-offset/multiplex-ratio/prechargep) plus
+ * width/height/reg are present, as the binding requires.
+ */
+&xiao_i2c {
+    status = "okay";
+
+    oled: ssd1306@3c {
+        compatible = "solomon,ssd1306fb";
+        reg = <0x3c>;
+        width = <128>;
+        height = <64>;
+        segment-offset = <0>;
+        page-offset = <0>;
+        display-offset = <0>;
+        multiplex-ratio = <63>;
+        prechargep = <0x22>;
+        inversion-on;
+    };
+
+    /*
+     * DRV2605L haptic driver (Adafruit-design breakout @ 0x5a on the same I2C
+     * bus as the OLED; addresses 0x3c vs 0x5a do not clash). This node is BOTH
+     * the I2C device and the custom `aic,behavior-haptic` ZMK behavior, so the
+     * keymap can reference `&haptic` to fire a buzz. There is no Zephyr DRV2605
+     * driver; our behavior does raw I2C writes (see src/behavior_haptic.c).
+     * Wiring: VIN->3V3, GND->GND, SDA->D4, SCL->D5, OUT+/OUT- -> ERM motor.
+     */
+    haptic: drv2605@5a {
+        compatible = "aic,behavior-haptic";
+        reg = <0x5a>;
+        #binding-cells = <0>;
     };
 };

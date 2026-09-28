@@ -76,7 +76,7 @@ Jobs (all success): `Fetch Build Keyboards`, `Build (seeeduino_xiao_ble, tester_
 | `seeeduino_xiao_ble` + `ai_companion` compiles | ✅ BUILD | run `36367806134` (expansion-board pins), job **Build (…, ai_companion, …) = success** |
 | UF2 flashed to board (via bootloader volume) | ✅ FLASH | copied to `/Volumes/XIAO-SENSE`; volume auto-ejected + rebooted; re-enumerated as USB **"AI Companion"** (VID 0x1D50 / PID 0x615E) |
 | Buttons type test keycodes (D0/D2/D9/D10 → V/Y/N/O) | ✅ HW-VERIFIED | user jumpered each pin to GND → typed `v`/`y`/`n`/`o` respectively (2026-09-28, over USB HID) |
-| Encoder rotate (D7/D6 → mouse-wheel scroll) | ⛔ NOT TESTED | REAL function (scrolls focused Mac window); encoder not yet in hand |
+| Encoder rotate (D7/D6 → mouse-wheel scroll) | ✅ HW-VERIFIED | 2026-09-28: turning scrolls the focused macOS window, correct direction (run `36381989367`). Rotation hardware first proven via a volume-diagnostic build (`&inc_dec_kp C_VOLUME_UP/DOWN` changed macOS volume). Scroll then fixed: `&msc` is a velocity behavior so a sensor-rotate tap accrued ~0 → raised `ZMK_POINTING_DEFAULT_SCRL_VAL`=60, `tap-ms`=50, `&msc` trigger-period-ms=10 / time-to-max-speed-ms=0 / delay-ms=0 (~3 wheel units per detent). |
 | BLE + USB on ai_companion firmware | ✅ BUILD | same board as tester → board conf enables BLE+USB; device name "AI Companion" |
 
 > Pin allocation (expansion-board mount; see `docs/wiring.md`):
@@ -84,6 +84,16 @@ Jobs (all success): `Fetch Build Keyboards`, `Build (seeeduino_xiao_ble, tester_
 > D7 Enc-SIGA, D6 Enc-SIGB (Grove UART); D4/D5 I2C (on-board OLED + DRV2605L via
 > Grove I2C). D1 (on-board button) + D3 (buzzer) avoided, D8 spare. On-board pin
 > usage confirmed from the Seeed wiki source.
+
+---
+
+## Phase 4 — Display + haptic
+
+| Item | Level reached | Evidence |
+|------|---------------|----------|
+| On-board SSD1306 OLED (128x64 @ 0x3C) compiles into ai_companion | ✅ BUILD | run `36370715642`, job **Build (…, ai_companion, …) = success**; artifact `firmware` 359,942 B. Node modelled on ZMK v0.3 kyria (`solomon,ssd1306fb`, mux-ratio 63) on `&xiao_i2c` (D4/D5). |
+| OLED shows the built-in status screen | ✅ HW-VERIFIED | flashed; XIAO on expansion board; screen shows battery widget + "AI Compani…" (device name). Blanks on idle (ZMK `blank-on-idle` default for SSD1306), wakes on input activity. (2026-09-28) |
+| DRV2605L haptic (motor vibrates) | ✅ HW-VERIFIED | run `36375309425` built the custom out-of-tree ZMK behavior `aic,behavior-haptic` (raw I2C register writes; no Zephyr DRV2605 driver). Fixes en route: add ZMK `app/include` to the module include path; init at `CONFIG_APPLICATION_INIT_PRIORITY` so `check_init_priorities` passes. **HW-VERIFIED 2026-09-28:** with the Open button temporarily bound to `&haptic`, a press fired a clear ERM buzz. Root cause of an initial "no buzz": the hand-wired DRV2605L had **SDA/SCL swapped** (OLED kept working on the same bus, VIN read 3.3 V — the swap signature); fixed by `SDA→D4`, `SCL→D5`. Open button then restored to `&kp O`. |
 
 ---
 

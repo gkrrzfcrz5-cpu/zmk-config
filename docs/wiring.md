@@ -85,6 +85,14 @@ pulled high on the board (no enable GPIO). On-board 10k I2C pull-ups.
 OLED (0x3C) + DRV2605L (0x5A) on the same two wires, distinguished by address.
 Pull-ups already present (board + DRV2605L breakout). Don't add more.
 
+> **Hand-wiring gotcha (HW-confirmed 2026-09-28):** if you jumper the DRV2605L
+> instead of using a Grove cable, do **not** swap SDA/SCL. `SDA→D4`, `SCL→D5`.
+> Swapping them makes the DRV2605L silently unresponsive (no buzz) while the OLED
+> keeps working (it is wired correctly on the same bus) — so "OLED lights up but
+> motor never buzzes, VIN reads 3.3 V" is the signature of a swapped SDA/SCL on
+> the haptic board. Tip: I2C is a shared bus, so you can tap the DRV2605L's
+> SDA/SCL onto the exact points the OLED already uses.
+
 ## Assumptions baked into this plan
 - **No microSD card** is used → D2 / D9 / D10 are free for buttons.
 - **Buzzer not used** → D3 avoided, no trace cutting needed.
