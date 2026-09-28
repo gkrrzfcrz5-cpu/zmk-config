@@ -112,6 +112,12 @@ Known risk (Phase 4): DRV2605L has no ZMK/Zephyr 3.5 driver → will need a smal
 custom I2C driver / behaviour. OLED (SSD1306) is natively supported.
 ## Phase 4 — Display + haptic  ⏳ IN PROGRESS (2026-09-28)
 Completed:
+- **OLED HW-VERIFIED ✅ (2026-09-28):** flashed to the XIAO on the expansion
+  board; the on-board SSD1306 shows the ZMK built-in status screen (battery
+  widget + "AI Compani…" device name). It blanks on idle (ZMK `blank-on-idle`
+  default for SSD1306) and wakes on input activity — expected behaviour, good for
+  the battery design. Whether to keep blank-on-idle vs always-on / wake-on-notify
+  is a Phase 5 design decision (deferred).
 - **OLED BUILD ✅ (2026-09-28):** added the expansion board's on-board SSD1306
   (128x64 @ 0x3C) to the ai_companion shield. Overlay = `ssd1306@3c` on
   `&xiao_i2c` (= &i2c0, D4/D5), `compatible = "solomon,ssd1306fb"`,
