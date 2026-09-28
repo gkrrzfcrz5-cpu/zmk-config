@@ -1,0 +1,9 @@
+# Copyright (c) 2026 The AI Companion Contributors
+# SPDX-License-Identifier: MIT
+
+if SHIELD_AI_COMPANION
+
+config ZMK_KEYBOARD_NAME
+    default "AI Companion"
+
+endif

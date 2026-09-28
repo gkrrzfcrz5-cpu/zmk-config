@@ -1,0 +1,36 @@
+/*
+ * Copyright (c) 2026 The AI Companion Contributors
+ * SPDX-License-Identifier: MIT
+ *
+ * Phase 3 TEST keymap. These are placeholder HID keycodes used ONLY to verify
+ * that the buttons and encoder are wired correctly. Phase 5 replaces them with
+ * the real Mac <-> device signalling.
+ *
+ *   Voice        -> V
+ *   Yes          -> Y
+ *   No           -> N
+ *   Open         -> O
+ *   Encoder push -> Mute
+ *   Encoder turn -> right = Volume Up, left = Volume Down
+ *
+ * How to verify (no physical buttons needed): open any text field, then briefly
+ * touch each pin to GND with a jumper -> the matching letter is typed. Turning
+ * the encoder changes the volume; pressing it toggles mute.
+ */
+
+#include <behaviors.dtsi>
+#include <dt-bindings/zmk/keys.h>
+
+/ {
+    keymap {
+        compatible = "zmk,keymap";
+
+        default_layer {
+            display-name = "AICompanion";
+            bindings = <
+                &kp V   &kp Y   &kp N   &kp O   &kp C_MUTE
+            >;
+            sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN>;
+        };
+    };
+};
