@@ -28,6 +28,15 @@
 
 #include <behaviors.dtsi>
 #include <dt-bindings/zmk/keys.h>
+
+/*
+ * Raise the default mouse-scroll speed BEFORE including pointing.h so SCRL_UP /
+ * SCRL_DOWN carry a larger value. `&msc` (zmk,behavior-input-two-axis) is a
+ * VELOCITY behavior: distance = speed x hold-time, accrued once per
+ * trigger-period-ms tick. A sensor-rotate "tap" is far too short at the default
+ * speed (10) so a detent scrolled ~0. See the &msc override + tap-ms below.
+ */
+#define ZMK_POINTING_DEFAULT_SCRL_VAL 60
 #include <dt-bindings/zmk/pointing.h>
 
 / {
@@ -35,13 +44,31 @@
         // Sensor-rotate behaviour: 1st binding = clockwise, 2nd = counter-clockwise.
         // Direction can be swapped after testing with the real encoder + macOS
         // "natural scrolling" setting.
+        // tap-ms holds &msc long enough for several scroll ticks per detent:
+        // ticks fire every trigger-period-ms (=10, overridden below), so a 50ms
+        // hold ≈ 5 ticks; distance ≈ speed(60) x 10ms/1000 x 5 ≈ 3 wheel units.
         encoder_scroll: encoder_scroll {
             compatible = "zmk,behavior-sensor-rotate";
             #sensor-binding-cells = <0>;
             bindings = <&msc SCRL_UP>, <&msc SCRL_DOWN>;
+            tap-ms = <50>;
         };
     };
+};
 
+/*
+ * Make &msc react immediately and tick finely so a short per-detent hold still
+ * produces a clean, perceptible scroll (defaults: trigger-period 16ms,
+ * time-to-max-speed 300ms → a tap accrued nothing). acceleration-exponent is
+ * already 0 (constant speed) in the stock node.
+ */
+&msc {
+    trigger-period-ms = <10>;
+    time-to-max-speed-ms = <0>;
+    delay-ms = <0>;
+};
+
+/ {
     keymap {
         compatible = "zmk,keymap";
 
