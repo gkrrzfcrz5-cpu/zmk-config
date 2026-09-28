@@ -169,4 +169,33 @@ Next executable task:
 - Phase 5: draft the device↔host interface contract (English, shareable) and
   agree the transport (BLE GATT vs USB HID vs USB CDC) + message schema with the
   co-working Mac/AI-side team, then implement the device side.
+## Phase 4d — Custom status-screen UI (mono prototype)  ✅ BUILD (2026-09-28)
+While the colour 1.9" ST7789 panel + XIAO nRF52840 Plus ship (~2 days), built a
+mono prototype of the "12 Core Screen States" UI on the in-hand SSD1306 (128x64,
+1bpp). Branch `mono-ui-prototype`.
+- Replaced ZMK's built-in status screen with a custom LVGL screen:
+  `CONFIG_ZMK_DISPLAY_STATUS_SCREEN_CUSTOM=y` (a `choice`; auto-deselects
+  BUILT_IN) + a strong `zmk_display_status_screen()` in `src/status_screen.c`
+  overriding ZMK's weak stub (app/src/display/main.c).
+- `src/status_screen.c`: renders text-forward, mono-adapted versions of all 12
+  states (HOME / SESSIONS / WORKING / NEED YOU / PERMISSIONS / PERMISSION / DONE
+  / ATTENTION / TIMEOUT / LISTENING / PROCESSING / OPENING), header = state name
+  + wifi glyph, footer where it fits, `lv_bar` progress on WORKING, bordered
+  Deny/Allow chips on PERMISSION. No host link yet (Phase 5), so a 5s `lv_timer`
+  AUTO-CYCLES through the 12 states so all can be reviewed on hardware. (v1 is
+  auto-cycle only; Open-button manual advance deferred — input hooking to a
+  custom screen not yet verified.)
+- `CMakeLists.txt`: compile the source into ZMK's `app` target (NOT a
+  zephyr_library — a lazily-linked archive member would not win the weak-symbol
+  override) under `if(CONFIG_ZMK_DISPLAY_STATUS_SCREEN_CUSTOM)`; the tester_xiao
+  build (no CUSTOM) skips it.
+- `ai_companion.conf`: select CUSTOM + LVGL label/bar + montserrat 10/12/14
+  (default 12); `CONFIG_ZMK_DISPLAY_BLANK_ON_IDLE=n` so the demo stays lit.
+- **BUILD gotcha:** first CI run (36402801095) FAILED — `status_screen.c`
+  included only `<lvgl.h>` but used `ARG_UNUSED`, which lives in a Zephyr header.
+  Fixed by adding `#include <zephyr/kernel.h>`. (Unknown CONFIG names only warn;
+  a hard exit-1 = a C compile error → tester passing localised it to this file.)
+- CI run `36403320578` = success; artifact `firmware` 366,303 B. FLASH pending
+  (user downloads the artifact from the web, then I flash via the bootloader).
+
 ## Phase 5 — MacBook communication  ⏳ NOT STARTED
