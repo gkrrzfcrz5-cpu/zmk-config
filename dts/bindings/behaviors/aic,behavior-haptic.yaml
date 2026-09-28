@@ -1,0 +1,11 @@
+# Copyright (c) 2026 The AI Companion Contributors
+# SPDX-License-Identifier: MIT
+
+description: |
+  DRV2605L haptic trigger behavior. The node is BOTH a ZMK behavior (referenced
+  from the keymap by phandle, zero binding cells) AND the DRV2605L I2C device
+  (address 0x5a on the XIAO I2C bus), so the behavior can drive it over raw I2C.
+
+compatible: "aic,behavior-haptic"
+
+include: [zero_param.yaml, i2c-device.yaml]

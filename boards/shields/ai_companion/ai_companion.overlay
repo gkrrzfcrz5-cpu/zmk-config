@@ -108,4 +108,18 @@
         prechargep = <0x22>;
         inversion-on;
     };
+
+    /*
+     * DRV2605L haptic driver (Adafruit-design breakout @ 0x5a on the same I2C
+     * bus as the OLED; addresses 0x3c vs 0x5a do not clash). This node is BOTH
+     * the I2C device and the custom `aic,behavior-haptic` ZMK behavior, so the
+     * keymap can reference `&haptic` to fire a buzz. There is no Zephyr DRV2605
+     * driver; our behavior does raw I2C writes (see src/behavior_haptic.c).
+     * Wiring: VIN->3V3, GND->GND, SDA->D4, SCL->D5, OUT+/OUT- -> ERM motor.
+     */
+    haptic: drv2605@5a {
+        compatible = "aic,behavior-haptic";
+        reg = <0x5a>;
+        #binding-cells = <0>;
+    };
 };

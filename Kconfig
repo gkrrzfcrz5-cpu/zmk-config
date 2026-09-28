@@ -1,0 +1,13 @@
+# Copyright (c) 2026 The AI Companion Contributors
+# SPDX-License-Identifier: MIT
+#
+# Kconfig for the in-repo module (referenced by zephyr/module.yml `kconfig:`).
+
+config ZMK_BEHAVIOR_HAPTIC
+    bool "DRV2605L haptic trigger behavior"
+    default y
+    depends on DT_HAS_AIC_BEHAVIOR_HAPTIC_ENABLED
+    select I2C
+    help
+      Custom ZMK behavior that fires a DRV2605L one-shot haptic effect over raw
+      I2C. Auto-enabled when an `aic,behavior-haptic` devicetree node is present.
