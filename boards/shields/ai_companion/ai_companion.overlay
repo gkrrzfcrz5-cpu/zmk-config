@@ -10,17 +10,23 @@
  *   D1  Yes   button        (direct GPIO, active-low, internal pull-up)
  *   D2  No    button        (direct GPIO, active-low, internal pull-up)
  *   D3  Open  button        (direct GPIO, active-low, internal pull-up)
- *   D6  Encoder push switch (direct GPIO, active-low, internal pull-up)
- *   D7  Encoder A phase     (EC11)
- *   D8  Encoder B phase     (EC11)
+ *   D7  Encoder A phase / SIGA (EC11)
+ *   D8  Encoder B phase / SIGB (EC11)
  *   D4/D5 reserved for I2C  (OLED SSD1306 + DRV2605L haptic) - Phase 4
- *   D9  reserved for DRV2605L EN (enable) - Phase 4
+ *   D6  spare (was encoder-push; the user's encoder module does not break out SW)
+ *   D9  spare (DRV2605L breakout ties EN high on-board, no GPIO needed)
  *   D10 spare
  *
+ * Encoder: the user's module is a 4-pin breakout (SIGA/SIGB/VCC/GND) with the
+ * push switch NOT routed to the header, so only rotation is used. VCC -> 3V3
+ * (module pulls SIGA/SIGB up to VCC with on-board 3.3k, so it must be 3V3, not
+ * 5V, to stay within the nRF's 3.3V logic level).
+ *
  * Buttons wire between the listed pin and GND; the internal pull-up means no
- * external resistor is required. The EC11 A/B pins also use internal pull-ups,
- * so an *unconnected* encoder reads a stable high level and produces no spurious
- * events (safe to build before the encoder hardware is fitted).
+ * external resistor is required. The EC11 A/B pins also use internal pull-ups
+ * (in parallel with the module's 3.3k), so an *unconnected* encoder reads a
+ * stable high level and produces no spurious events (safe to build before the
+ * encoder hardware is fitted).
  */
 
 #include <dt-bindings/zmk/matrix_transform.h>
@@ -33,10 +39,10 @@
 
     default_transform: keymap_transform_0 {
         compatible = "zmk,matrix-transform";
-        columns = <5>;
+        columns = <4>;
         rows = <1>;
-        //        Voice   Yes     No      Open    EncPush
-        map = < RC(0,0) RC(0,1) RC(0,2) RC(0,3) RC(0,4) >;
+        //        Voice   Yes     No      Open
+        map = < RC(0,0) RC(0,1) RC(0,2) RC(0,3) >;
     };
 
     kscan0: kscan_0 {
@@ -49,7 +55,6 @@
             , <&xiao_d 1 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>   // Yes
             , <&xiao_d 2 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>   // No
             , <&xiao_d 3 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>   // Open
-            , <&xiao_d 6 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>   // Encoder push
             ;
     };
 

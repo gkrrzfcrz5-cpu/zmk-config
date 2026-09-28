@@ -73,17 +73,17 @@ Jobs (all success): `Fetch Build Keyboards`, `Build (seeeduino_xiao_ble, tester_
 | Item | Level reached | Evidence |
 |------|---------------|----------|
 | Shield authored to verified v0.3 patterns | ✅ CODE-REVIEW | overlay/keymap modelled on `reviung5` (direct kscan + `alps,ec11`) + `tester_xiao` (`seeed_xiao` / `&xiao_d`) |
-| `seeeduino_xiao_ble` + `ai_companion` compiles | ✅ BUILD | run `36362523013`, job **Build (seeeduino_xiao_ble, ai_companion, …) = success** (encoder=scroll version) |
+| `seeeduino_xiao_ble` + `ai_companion` compiles | ⏳ BUILD PENDING | rebuild after 4-button / rotation-only change (encoder push dropped) |
 | Buttons type test keycodes (D0..D3 → V/Y/N/O) | ⛔ NOT TESTED | user to flash + jump each pin to GND |
-| Encoder push (D6 → P) | ⛔ NOT TESTED | testable now via jumper D6→GND |
 | Encoder rotate (D7/D8 → mouse-wheel scroll) | ⛔ NOT TESTED | REAL function (scrolls focused Mac window); encoder not yet in hand |
 | BLE + USB on ai_companion firmware | ✅ BUILD | same board as tester → board conf enables BLE+USB; device name "AI Companion" |
 
-> Pin allocation (see `boards/shields/ai_companion/ai_companion.overlay`):
-> D0 Voice, D1 Yes, D2 No, D3 Open, D6 Enc-push, D7 Enc-A, D8 Enc-B;
-> D4/D5 reserved I2C (OLED + DRV2605L), D9 reserved DRV2605L-EN, D10 spare.
-> EC11 A/B use internal pull-ups, so an unconnected encoder is stable (no
-> spurious events) — safe to build/flash before the knob arrives.
+> Pin allocation (see `boards/shields/ai_companion/ai_companion.overlay` and
+> `docs/wiring.md`): D0 Voice, D1 Yes, D2 No, D3 Open, D7 Enc-A/SIGA, D8 Enc-B/SIGB;
+> D4/D5 reserved I2C (OLED + DRV2605L), D6/D9/D10 spare. Encoder push dropped —
+> the user's 4-pin encoder module (SIGA/SIGB/VCC/GND) does not break out SW.
+> EC11 A/B use internal + module pull-ups, so an unconnected encoder is stable
+> (no spurious events) — safe to build/flash before the knob arrives.
 
 ---
 

@@ -64,25 +64,37 @@ Next executable task:
 ## Phase 3 — ai_companion shield  ⏳ IN PROGRESS (2026-09-28)
 Completed:
 - Proposed + user-approved pin allocation: D0 Voice / D1 Yes / D2 No / D3 Open /
-  D6 encoder-push / D7 encoder-A / D8 encoder-B; D4/D5 reserved for I2C
-  (OLED SSD1306 + DRV2605L), D9 reserved DRV2605L-EN, D10 spare.
+  D7 encoder-A(SIGA) / D8 encoder-B(SIGB); D4/D5 reserved for I2C
+  (OLED SSD1306 + DRV2605L), D6/D9/D10 spare.
 - Authored `boards/shields/ai_companion/` (overlay, keymap, conf, Kconfig.*,
   zmk.yml) to verified ZMK v0.3 patterns (`reviung5` + `tester_xiao`).
-- Mapping: buttons V/Y/N/O (placeholder test keycodes), encoder push = P
-  (placeholder), **encoder rotate = mouse-wheel scroll** (`&msc SCRL_UP/DOWN`).
+- Mapping: buttons V/Y/N/O (placeholder test keycodes),
+  **encoder rotate = mouse-wheel scroll** (`&msc SCRL_UP/DOWN`).
   Scroll is the REAL function: it scrolls the focused Mac window (the Optimus
   session window), handled natively by macOS HID — no host app needed.
-- **Compilation verified (BUILD)**: run `36362523013` (scroll version),
-  ai_companion build job = success (also re-verified all tester_xiao + merge
-  jobs). Earlier run #7 `36361840680` was the pre-scroll (Vol±) build.
+- **Hardware bring-up decisions (2026-09-28, from the user's parts):**
+  - Mounting = **discrete wiring** (jumpers straight to XIAO; expansion board
+    NOT used as carrier). Full pin freedom, matches the firmware.
+  - DRV2605L = **Adafruit breakout** (schematic confirmed): EN tied high on-board
+    → dropped the D9 EN reservation; motor on OUT+/OUT-. "Just vibrate" only.
+  - Encoder = **4-pin module** (SIGA/SIGB/VCC/GND); push switch is NOT on the
+    header → **encoder push dropped**, rotation only. Firmware updated to 4
+    buttons + rotation (removed D6 kscan key, 4-col transform, removed `&kp P`).
+  - Full wiring recorded in `docs/wiring.md`.
+- Earlier BUILD (BUILD): run `36362523013` (5-key scroll version) succeeded;
+  a rebuild is pending after the 4-key / rotation-only change.
+
+Open items (need the user, hardware):
+- OLED source: standalone I2C module vs reuse the expansion board's OLED (the
+  discrete choice means the board's soldered-on OLED isn't directly usable).
+- Motor type: ERM vs LRA (for the DRV2605L config; default assume ERM).
 
 Parts status: XIAO ✅, expansion board + OLED ✅, DRV2605L + motor ✅ in hand;
 physical buttons ⛔ (test via jumper-to-GND), rotary encoder ⛔ (not yet arrived).
 
 Next executable task (user, hardware):
 - Flash `seeeduino_xiao_ble-ai_companion.uf2`; touch D0..D3 to GND → expect
-  V/Y/N/O typed; touch D6 to GND → expect P typed (encoder push, testable now).
-  Encoder rotation (→ scroll) verified once the physical knob arrives.
+  V/Y/N/O typed. Encoder rotation (→ scroll) verified once the knob arrives.
 
 Known risk (Phase 4): DRV2605L has no ZMK/Zephyr 3.5 driver → will need a small
 custom I2C driver / behaviour. OLED (SSD1306) is natively supported.

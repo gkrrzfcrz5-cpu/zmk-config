@@ -9,9 +9,12 @@
  * scroll, handled natively by macOS — no host app required.
  *   Encoder turn -> right = Scroll Up, left = Scroll Down
  *
- * The 4 buttons + encoder push still use PLACEHOLDER test keycodes for wiring
- * verification; Phase 5 replaces these with the real Mac <-> device signalling:
- *   Voice -> V,  Yes -> Y,  No -> N,  Open -> O,  Encoder push -> P
+ * The 4 buttons use PLACEHOLDER test keycodes for wiring verification; Phase 5
+ * replaces these with the real Mac <-> device signalling:
+ *   Voice -> V,  Yes -> Y,  No -> N,  Open -> O
+ *
+ * The rotary encoder is a 4-pin module (SIGA/SIGB/VCC/GND) whose push switch is
+ * not routed to the header, so only rotation is used (no encoder-push button).
  *
  * How to verify (no physical buttons needed): open any text field, then briefly
  * touch each pin to GND with a jumper -> the matching letter is typed. Once the
@@ -40,7 +43,7 @@
         default_layer {
             display-name = "AICompanion";
             bindings = <
-                &kp V   &kp Y   &kp N   &kp O   &kp P
+                &kp V   &kp Y   &kp N   &kp O
             >;
             sensor-bindings = <&encoder_scroll>;
         };
