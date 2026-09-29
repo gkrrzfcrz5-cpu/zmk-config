@@ -59,13 +59,19 @@ struct behavior_haptic_config {
  * host `haptic` message path in src/aic_comm.c uses it). NULL until init runs. */
 static const struct i2c_dt_spec *s_haptic_i2c;
 
-void aic_haptic_play_effect(uint8_t effect_id) {
+void aic_haptic_play_seq(const uint8_t *seq, size_t len) {
     const struct i2c_dt_spec *i2c = s_haptic_i2c;
     uint8_t feedback;
 
     if (i2c == NULL || !device_is_ready(i2c->bus)) {
         LOG_ERR("DRV2605L I2C bus not ready");
         return;
+    }
+    if (seq == NULL || len == 0) {
+        return;
+    }
+    if (len > 8) {
+        len = 8; /* the DRV2605L has 8 waveform slots (WAVESEQ1..8) */
     }
 
     /* Exit standby into internal-trigger mode. */
@@ -75,12 +81,22 @@ void aic_haptic_play_effect(uint8_t effect_id) {
     if (i2c_reg_read_byte_dt(i2c, DRV_REG_FEEDBACK, &feedback) == 0) {
         i2c_reg_write_byte_dt(i2c, DRV_REG_FEEDBACK, feedback & DRV_FEEDBACK_ERM_MASK);
     }
-
-    /* Load the requested ERM effect as a single-entry waveform and fire it. */
     i2c_reg_write_byte_dt(i2c, DRV_REG_LIBRARY, DRV_LIBRARY_ERM_A);
-    i2c_reg_write_byte_dt(i2c, DRV_REG_WAVESEQ1, effect_id);
-    i2c_reg_write_byte_dt(i2c, DRV_REG_WAVESEQ2, DRV_WAVESEQ_END);
+
+    /* Fill the waveform slots (WAVESEQ1=0x04 .. WAVESEQ8=0x0B are consecutive),
+     * terminate with an END entry if the sequence is shorter than 8, then GO. */
+    for (size_t i = 0; i < len; i++) {
+        i2c_reg_write_byte_dt(i2c, DRV_REG_WAVESEQ1 + i, seq[i]);
+    }
+    if (len < 8) {
+        i2c_reg_write_byte_dt(i2c, DRV_REG_WAVESEQ1 + len, DRV_WAVESEQ_END);
+    }
     i2c_reg_write_byte_dt(i2c, DRV_REG_GO, DRV_GO_PLAY);
+}
+
+void aic_haptic_play_effect(uint8_t effect_id) {
+    const uint8_t one[] = {effect_id};
+    aic_haptic_play_seq(one, 1);
 }
 
 static int on_keymap_binding_pressed(struct zmk_behavior_binding *binding,

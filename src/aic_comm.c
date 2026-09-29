@@ -207,19 +207,30 @@ static void aic_send_line(const char *line)
 static void aic_fire_cue(const char *cue)
 {
 #if IS_ENABLED(CONFIG_ZMK_BEHAVIOR_HAPTIC)
-    /* Map the host's semantic cue to a DRV2605L effect. Distinct feels for the
-     * three cues are tuned/verified on the real motor in a later step; the
-     * mapping is the seam. See docs/phase5-interface-contract.md §4.3. */
-    uint8_t effect = AIC_HAPTIC_BUZZ1;
+    /* Three deliberately-distinct patterns so the user can tell them apart by
+     * feel WITHOUT looking at the screen. They differ by RHYTHM (tap count /
+     * duration), which is far easier to distinguish than one effect's strength
+     * (an earlier single faint tick was easy to miss). Each tap is a
+     * full-strength Strong Click so the double tap reads cleanly.
+     *   done    -> one click            (做完:乾脆一下 嗒)
+     *   block   -> two clicks           (要權限/卡住:嗒—嗒,像敲門)
+     *   stopped -> one long buzz        (中斷:嗡———,明顯比 click 長)
+     * Feel to be HW-verified on the real motor; see docs/phase5-interface-contract.md §4.3. */
+    static const uint8_t done_seq[]    = {AIC_HAPTIC_STRONG_CLICK};
+    static const uint8_t block_seq[]   = {AIC_HAPTIC_STRONG_CLICK,
+                                          AIC_HAPTIC_DELAY_MS(80),
+                                          AIC_HAPTIC_STRONG_CLICK};
+    static const uint8_t stopped_seq[] = {AIC_HAPTIC_BUZZ1, AIC_HAPTIC_BUZZ1};
+
     if (strcmp(cue, "block") == 0) {
-        effect = AIC_HAPTIC_DOUBLE_CLICK; /* permission / stuck: double tap */
+        aic_haptic_play_seq(block_seq, ARRAY_SIZE(block_seq));
     } else if (strcmp(cue, "stopped") == 0) {
-        effect = AIC_HAPTIC_BUZZ1;        /* interrupted: one buzz */
+        aic_haptic_play_seq(stopped_seq, ARRAY_SIZE(stopped_seq));
     } else if (strcmp(cue, "done") == 0) {
-        effect = AIC_HAPTIC_STRONG_CLICK; /* finished: one firm click (Sharp
-                                           * Tick was too faint on the ERM) */
+        aic_haptic_play_seq(done_seq, ARRAY_SIZE(done_seq));
+    } else {
+        aic_haptic_play_seq(done_seq, ARRAY_SIZE(done_seq)); /* unknown cue: mild */
     }
-    aic_haptic_play_effect(effect);
 #else
     ARG_UNUSED(cue);
 #endif
