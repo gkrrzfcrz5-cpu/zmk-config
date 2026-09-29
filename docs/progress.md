@@ -222,4 +222,51 @@ mono prototype of the "12 Core Screen States" UI on the in-hand SSD1306 (128x64,
   hardware. Next: per-screen layout tweaks on request, then port to the colour
   1.9" ST7789 panel when it + the XIAO nRF52840 Plus arrive.
 
-## Phase 5 — MacBook communication  ⏳ NOT STARTED
+## Phase 5 — MacBook communication  ⏳ IN PROGRESS (2026-09-29)
+
+Interface contract agreed + written: `docs/phase5-interface-contract.md` (v0.2
+hand-off spec for the Optimus/host engineer). Transport v1 = USB CDC-ACM,
+newline-delimited JSON; host = source of truth; device = thin client.
+
+### Task ① — device-side USB CDC data channel  ✅ CODE-REVIEW (2026-09-29)
+Wrote the device side of the channel + a Mac-side manual test tool. **Not yet
+built or flashed** — CODE-REVIEW only; next gate is a CI BUILD, then HW-VERIFIED
+on the in-hand mono prototype.
+
+- **CDC-ACM node** (`ai_companion.overlay`): added a `zephyr,cdc-acm-uart` on
+  `&zephyr_udc0` + a `chosen aic,comm-uart` alias. This is the same HID+CDC
+  composite construct ZMK Studio uses for its RPC link
+  (`app/snippets/studio-rpc-usb-uart/`), so it rides a known-good coexistence.
+- **Kconfig** (`ai_companion.conf`): the exact USB/CDC/SERIAL symbols from the
+  Studio snippet (`CONFIG_USB_CDC_ACM`, `CONFIG_SERIAL=y`,
+  `CONFIG_UART_INTERRUPT_DRIVEN=y`, `CONFIG_UART_LINE_CTRL=y`, …) — these
+  override the board fragment's `CONFIG_SERIAL=n` (shield .conf merges after the
+  board .conf). New Kconfig symbol `AIC_COMM` (root `Kconfig`) gates the module.
+- **`src/aic_comm.c`** (new): three-context design — RX ISR drains the CDC FIFO
+  into a line buffer and hands each completed line to a `k_msgq`; a work item on
+  ZMK's display work queue (`zmk_display_work_q()`) parses the JSON and drives
+  the screen/haptic (LVGL is not thread-safe, so all UI work is marshalled onto
+  the one queue that services LVGL); a low-priority thread does UART setup and
+  watches CDC DTR to send `hello` on connect / restore standby on disconnect.
+  Parses `screen`/`haptic`/`ping`, replies `pong`, sends `hello`; `tasks`
+  (browse cache) deferred. Minimal depth-aware JSON-lines field extractor (no
+  library) since the message set is a small, controlled flat-object subset.
+- **`src/status_screen.c`** (rewritten): the 12-state auto-cycle demo is now a
+  HOST-DRIVEN renderer for the 6 agreed states (TASK/READY/PERMISSION/WAITING/
+  STOPPED/DONE) drawing the real `task`/`line`/`question`/`clock` text; shows a
+  local standby screen before the first message and after a disconnect. Mono
+  prototype fonts are Latin (Montserrat), so fixed labels are English/symbols
+  and dynamic fields render as received (CJK glyphs come with the colour panel).
+- **`src/behavior_haptic.c`** (refactored): exposed `aic_haptic_play_effect()`
+  (via `src/aic_haptic.h`) so the `haptic` message path can fire the motor, not
+  just the keymap `&haptic`. Cue→effect map: `block`→double-click,
+  `stopped`→buzz1 (HW-verified), `done`→sharp-tick. Distinct feel of the two new
+  effects is tuned/verified on the real motor in task ③.
+- **`tools/aic_push.py`** (new): Mac-side manual test bench (pyserial) — opens
+  `/dev/tty.usbmodem*`, sends `screen`/`haptic`/`ping` from short interactive
+  commands or raw JSON, prints device→host lines. Doubles as the reference for
+  the Optimus-side engineer.
+
+Next: CI BUILD to reach BUILD level; then flash + drive the screen/haptic from
+`tools/aic_push.py` for HW-VERIFIED. Then task ② (buttons emit `input` JSON),
+task ③ (3 distinct haptic patterns), task ④ (screen content polish).

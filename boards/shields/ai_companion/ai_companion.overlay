@@ -123,3 +123,32 @@
         #binding-cells = <0>;
     };
 };
+
+/*
+ * Phase 5 — USB CDC-ACM data channel (host <-> device, newline-delimited JSON).
+ *
+ * This adds a SECOND USB function (a virtual serial port) alongside the HID
+ * keyboard/mouse the device already exposes, forming a composite USB device.
+ * That HID + CDC-ACM coexistence is a supported ZMK pattern: ZMK Studio uses the
+ * exact same construct for its RPC link (app/snippets/studio-rpc-usb-uart/
+ * studio-rpc-usb-uart.overlay), and so does USB logging. On the Mac the port
+ * shows up as /dev/tty.usbmodem*; the host writes `screen`/`haptic`/`tasks`/
+ * `ping` JSON lines and reads back `input`/`hello`/`pong` (see
+ * docs/phase5-interface-contract.md).
+ *
+ * `zephyr_udc0` is the nRF52840 USB device-controller label (from the Nordic
+ * SoC devicetree); the same label ZMK's own USB HID binds to. `aic,comm-uart`
+ * is our chosen alias so src/aic_comm.c can grab this specific CDC instance via
+ * DT_CHOSEN(aic_comm_uart) without hard-coding a node name.
+ */
+&zephyr_udc0 {
+    aic_comm_uart: aic_comm_uart {
+        compatible = "zephyr,cdc-acm-uart";
+    };
+};
+
+/ {
+    chosen {
+        aic,comm-uart = &aic_comm_uart;
+    };
+};

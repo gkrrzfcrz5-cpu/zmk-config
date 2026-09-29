@@ -2,27 +2,40 @@
  * Copyright (c) 2026 The AI Companion Contributors
  * SPDX-License-Identifier: MIT
  *
- * Custom ZMK status screen for the AI Companion device.
+ * Custom ZMK status screen for the AI Companion device — HOST-DRIVEN.
  *
- * MONO PROTOTYPE of the "12 Core Screen States" UI on the on-board 128x64
- * SSD1306 OLED, built while the colour 1.9" ST7789 panel ships. It draws
- * text-forward, simplified versions of each state (the mascot art + colour of
- * the mockup arrive later on the colour panel). There is no host link yet
- * (Phase 5), so the 12 states AUTO-CYCLE on a timer to let all screens be
- * reviewed on real hardware. The layout / per-screen content / state list all
- * carry over to the colour build; only the styling is redone there.
+ * MONO PROTOTYPE on the on-board 128x64 SSD1306 OLED, built while the colour
+ * 1.9" ST7789 panel ships. Phase 5 wires this to the Mac: src/aic_comm.c reads
+ * `screen` JSON from the USB CDC-ACM channel, fills a struct aic_screen_model,
+ * and calls aic_screen_render() to draw it. Before the first message (and after
+ * a disconnect) we show a local standby screen, so the panel is never blank/
+ * garbage waiting for the host.
+ *
+ * The six host states map to docs/phase5-interface-contract.md §4.1:
+ *   TASK / READY / PERMISSION / WAITING / STOPPED / DONE.
+ * The mockup wording is Traditional Chinese, but the mono prototype's LVGL fonts
+ * are Montserrat (Latin only), so FIXED labels here are short English/symbols;
+ * the DYNAMIC fields (task / line / question) are drawn verbatim from the host
+ * (English text renders; CJK glyphs come with the colour-panel font port).
+ *
+ * Thread-safety: LVGL is single-threaded. aic_screen_render() must run in the
+ * ZMK display work-queue context; src/aic_comm.c guarantees that by dispatching
+ * from a k_work submitted to zmk_display_work_q(). zmk_display_status_screen()
+ * itself runs on that same queue (app/src/display/main.c init work), so the
+ * shared s_model needs no extra lock.
  *
  * ZMK wiring (verified against zmkfirmware/zmk v0.3.0):
  *   - CONFIG_ZMK_DISPLAY_STATUS_SCREEN_CUSTOM=y makes ZMK call
  *     zmk_display_status_screen() (app/src/display/main.c) instead of the
- *     built-in widget screen. main.c defines a weak stub returning NULL; this
- *     strong definition overrides it (source is compiled into the `app` target
- *     by our module CMakeLists, so no duplicate symbol and the override wins).
- *   - LVGL is v8.3: lv_timer, lv_bar and the LV_SYMBOL_* glyphs are available.
+ *     built-in widget screen; this strong definition overrides its weak stub.
+ *   - LVGL is v8.3: lv_label, lv_bar and the LV_SYMBOL_* glyphs are available.
  */
 
 #include <zephyr/kernel.h>
+#include <string.h>
 #include <lvgl.h>
+
+#include "aic_screen.h"
 
 /* Declared by ZMK in app/include/zmk/display/status_screen.h. Declared locally
  * so this source does not depend on ZMK's PRIVATE app include path. */
@@ -33,26 +46,8 @@ lv_obj_t *zmk_display_status_screen(void);
 #define AIC_FG lv_color_white()
 #define AIC_BG lv_color_black()
 
-#define AIC_STATE_COUNT 12
-#define AIC_CYCLE_MS 5000
-
-enum aic_state {
-    ST_HOME = 0,
-    ST_SESSIONS,
-    ST_WORKING,
-    ST_NEED_YOU,
-    ST_PERMISSIONS,
-    ST_PERMISSION,
-    ST_DONE,
-    ST_ATTENTION,
-    ST_TIMEOUT,
-    ST_LISTENING,
-    ST_PROCESSING,
-    ST_OPENING,
-};
-
-static lv_obj_t *s_content; /* full-screen container we clear + rebuild per state */
-static uint8_t s_state;     /* current state index */
+static lv_obj_t *s_content;            /* full-screen container, cleared per draw */
+static struct aic_screen_model s_model; /* last model from the host (zeroed = standby) */
 
 /* --- small helpers --------------------------------------------------------- */
 
@@ -67,30 +62,20 @@ static lv_obj_t *aic_label(const char *text, const lv_font_t *font,
     return l;
 }
 
+/* Word-wrapping label pinned to a top-left box the width of the panel. */
+static lv_obj_t *aic_label_wrap(const char *text, const lv_font_t *font, lv_coord_t y)
+{
+    lv_obj_t *l = aic_label(text, font, LV_ALIGN_TOP_LEFT, 0, y);
+    lv_obj_set_width(l, 124);
+    lv_label_set_long_mode(l, LV_LABEL_LONG_WRAP);
+    return l;
+}
+
 /* Top bar: STATE NAME (left) + a wifi glyph (right). */
 static void aic_header(const char *title)
 {
     aic_label(title, &lv_font_montserrat_12, LV_ALIGN_TOP_LEFT, 0, 0);
     aic_label(LV_SYMBOL_WIFI, &lv_font_montserrat_12, LV_ALIGN_TOP_RIGHT, 0, 0);
-}
-
-/* Bottom bar: status (left) + optional hint (right). */
-static void aic_footer(const char *left, const char *right)
-{
-    if (left) {
-        aic_label(left, &lv_font_montserrat_10, LV_ALIGN_BOTTOM_LEFT, 0, 0);
-    }
-    if (right) {
-        aic_label(right, &lv_font_montserrat_10, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
-    }
-}
-
-/* "name .............. value" list row at vertical offset y (from top). */
-static void aic_row(const char *name, const char *value, lv_coord_t y,
-                    const lv_font_t *font)
-{
-    aic_label(name, font, LV_ALIGN_TOP_LEFT, 0, y);
-    aic_label(value, font, LV_ALIGN_TOP_RIGHT, 0, y);
 }
 
 /* A bordered "chip" used for the Deny / Allow choices. */
@@ -107,131 +92,89 @@ static void aic_chip(const char *text, lv_align_t align)
     lv_obj_align(c, align, 0, 0);
 }
 
-/* Horizontal progress bar (used by WORKING). */
-static void aic_bar(int value, lv_coord_t y)
+/* Fall back to a placeholder when the host omitted a field. */
+static const char *or_dash(const char *s)
 {
-    lv_obj_t *bar = lv_bar_create(s_content);
-    lv_obj_set_size(bar, 120, 8);
-    lv_obj_align(bar, LV_ALIGN_TOP_MID, 0, y);
-    lv_bar_set_range(bar, 0, 100);
-    lv_bar_set_value(bar, value, LV_ANIM_OFF);
-    lv_obj_set_style_bg_color(bar, AIC_BG, LV_PART_MAIN);
-    lv_obj_set_style_border_color(bar, AIC_FG, LV_PART_MAIN);
-    lv_obj_set_style_border_width(bar, 1, LV_PART_MAIN);
-    lv_obj_set_style_radius(bar, 0, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(bar, AIC_FG, LV_PART_INDICATOR);
-    lv_obj_set_style_radius(bar, 0, LV_PART_INDICATOR);
+    return (s && s[0]) ? s : "—";
 }
 
-/* --- per-state rendering --------------------------------------------------- */
+/* --- draw one model -------------------------------------------------------- */
 
-static void aic_render(uint8_t st)
+static void aic_draw(const struct aic_screen_model *m)
 {
     lv_obj_clean(s_content);
 
-    switch (st) {
-    case ST_HOME:
-        aic_header("HOME");
-        aic_row("RUNNING", "2", 16, &lv_font_montserrat_12);
-        aic_row("NEED YOU", "1", 29, &lv_font_montserrat_12);
-        aic_row("DONE", "8", 42, &lv_font_montserrat_12);
-        aic_footer("READY", "10:24");
-        break;
+    /* Empty state = local standby (pre-connect / disconnected). */
+    if (m->state[0] == '\0') {
+        aic_label("AI Companion", &lv_font_montserrat_12, LV_ALIGN_CENTER, 0, -6);
+        aic_label("waiting for host", &lv_font_montserrat_10, LV_ALIGN_CENTER, 0, 10);
+        return;
+    }
 
-    case ST_SESSIONS:
-        aic_header("SESSIONS");
-        aic_row("Website Rede", "RUN", 15, &lv_font_montserrat_10);
-        aic_row("Mobile App", "IDLE", 27, &lv_font_montserrat_10);
-        aic_row("Test Suite", "NEED", 39, &lv_font_montserrat_10);
-        aic_row("Docs Update", "DONE", 51, &lv_font_montserrat_10);
-        break;
+    if (strcmp(m->state, "READY") == 0) {
+        /* Clock standby: big clock, "READY" under it. */
+        aic_label(or_dash(m->clock), &lv_font_montserrat_14, LV_ALIGN_CENTER, 0, -8);
+        aic_label("READY", &lv_font_montserrat_12, LV_ALIGN_CENTER, 0, 12);
+        return;
+    }
 
-    case ST_WORKING:
-        aic_header("WORKING");
-        aic_label("Website Redesign", &lv_font_montserrat_10, LV_ALIGN_TOP_LEFT, 0, 15);
-        aic_label("BUILDING...", &lv_font_montserrat_10, LV_ALIGN_TOP_LEFT, 0, 28);
-        aic_label("68%", &lv_font_montserrat_10, LV_ALIGN_TOP_RIGHT, 0, 28);
-        aic_bar(68, 40);
-        aic_footer("01:24", "STAYING ON IT");
-        break;
+    if (strcmp(m->state, "TASK") == 0) {
+        /* Primary running task + its one-line status. */
+        aic_header("RUNNING");
+        aic_label_wrap(or_dash(m->task), &lv_font_montserrat_12, 16);
+        aic_label_wrap(or_dash(m->line), &lv_font_montserrat_10, 38);
+        return;
+    }
 
-    case ST_NEED_YOU:
-        aic_header("NEED YOU");
-        aic_label(LV_SYMBOL_BELL "  !", &lv_font_montserrat_14, LV_ALIGN_TOP_LEFT, 0, 15);
-        aic_label("I NEED YOUR HELP", &lv_font_montserrat_12, LV_ALIGN_TOP_LEFT, 0, 33);
-        aic_label("1 DECISION PENDING", &lv_font_montserrat_10, LV_ALIGN_BOTTOM_LEFT, 0, 0);
-        break;
-
-    case ST_PERMISSIONS:
-        aic_header("PERMS");
-        aic_row("Run tests?", "2m", 16, &lv_font_montserrat_12);
-        aic_row("Deploy stg?", "8m", 30, &lv_font_montserrat_12);
-        aic_row("Access db?", "12m", 44, &lv_font_montserrat_12);
-        break;
-
-    case ST_PERMISSION:
+    if (strcmp(m->state, "PERMISSION") == 0) {
+        /* Task + question + Deny/Allow (No/Yes buttons). */
         aic_header("PERMISSION");
-        aic_label("Run tests?", &lv_font_montserrat_12, LV_ALIGN_TOP_LEFT, 0, 15);
-        aic_label("248 tests, ~3 min", &lv_font_montserrat_10, LV_ALIGN_TOP_LEFT, 0, 31);
+        aic_label_wrap(or_dash(m->task), &lv_font_montserrat_10, 15);
+        aic_label_wrap(or_dash(m->question), &lv_font_montserrat_12, 28);
         aic_chip(LV_SYMBOL_CLOSE " Deny", LV_ALIGN_BOTTOM_LEFT);
         aic_chip(LV_SYMBOL_OK " Allow", LV_ALIGN_BOTTOM_RIGHT);
-        break;
+        return;
+    }
 
-    case ST_DONE:
+    if (strcmp(m->state, "WAITING") == 0) {
+        aic_header("WAITING");
+        aic_label_wrap(or_dash(m->task), &lv_font_montserrat_12, 18);
+        aic_label("waiting for you", &lv_font_montserrat_10, LV_ALIGN_BOTTOM_LEFT, 0, 0);
+        return;
+    }
+
+    if (strcmp(m->state, "STOPPED") == 0) {
+        aic_header("STOPPED");
+        aic_label_wrap(or_dash(m->task), &lv_font_montserrat_12, 18);
+        aic_label(LV_SYMBOL_WARNING " stopped", &lv_font_montserrat_10,
+                  LV_ALIGN_BOTTOM_LEFT, 0, 0);
+        return;
+    }
+
+    if (strcmp(m->state, "DONE") == 0) {
         aic_header("DONE");
-        aic_label(LV_SYMBOL_OK " 12 tests passed", &lv_font_montserrat_12, LV_ALIGN_TOP_LEFT, 0, 17);
-        aic_label("All checks successful", &lv_font_montserrat_10, LV_ALIGN_TOP_LEFT, 0, 34);
-        aic_footer("00:58", "GREAT WORK!");
-        break;
+        aic_label_wrap(or_dash(m->task), &lv_font_montserrat_12, 18);
+        aic_label(LV_SYMBOL_OK " done", &lv_font_montserrat_10,
+                  LV_ALIGN_BOTTOM_LEFT, 0, 0);
+        return;
+    }
 
-    case ST_ATTENTION:
-        aic_header("ATTENTION");
-        aic_label(LV_SYMBOL_WARNING " Build failed", &lv_font_montserrat_12, LV_ALIGN_TOP_LEFT, 0, 16);
-        aic_label("Type error in", &lv_font_montserrat_10, LV_ALIGN_TOP_LEFT, 0, 34);
-        aic_label("Button.tsx", &lv_font_montserrat_10, LV_ALIGN_TOP_LEFT, 0, 46);
-        break;
+    /* Unknown state (forward-compat): fall back to standby wording. */
+    aic_label("AI Companion", &lv_font_montserrat_12, LV_ALIGN_CENTER, 0, -6);
+    aic_label(or_dash(m->state), &lv_font_montserrat_10, LV_ALIGN_CENTER, 0, 10);
+}
 
-    case ST_TIMEOUT:
-        aic_header("TIMEOUT");
-        aic_label("Still working...", &lv_font_montserrat_12, LV_ALIGN_TOP_LEFT, 0, 16);
-        aic_label("Running for 20 min", &lv_font_montserrat_10, LV_ALIGN_TOP_LEFT, 0, 34);
-        aic_footer("20:00", "KEEP GOING?");
-        break;
+/* --- public entry point (called by src/aic_comm.c) ------------------------- */
 
-    case ST_LISTENING:
-        aic_header("LISTENING");
-        aic_label(LV_SYMBOL_AUDIO, &lv_font_montserrat_14, LV_ALIGN_TOP_MID, 0, 18);
-        aic_label("Speak now...", &lv_font_montserrat_12, LV_ALIGN_TOP_MID, 0, 42);
-        break;
-
-    case ST_PROCESSING:
-        aic_header("PROCESSING");
-        aic_label(".  .  .", &lv_font_montserrat_14, LV_ALIGN_TOP_MID, 0, 18);
-        aic_label("Understanding", &lv_font_montserrat_10, LV_ALIGN_TOP_MID, 0, 38);
-        aic_label("your request...", &lv_font_montserrat_10, LV_ALIGN_TOP_MID, 0, 50);
-        break;
-
-    case ST_OPENING:
-        aic_header("OPENING");
-        aic_label(LV_SYMBOL_FILE " Opening result...", &lv_font_montserrat_10, LV_ALIGN_TOP_LEFT, 0, 20);
-        aic_label("Website Redesign", &lv_font_montserrat_10, LV_ALIGN_TOP_LEFT, 0, 38);
-        break;
-
-    default:
-        break;
+void aic_screen_render(const struct aic_screen_model *model)
+{
+    s_model = *model;
+    if (s_content != NULL) {
+        aic_draw(&s_model);
     }
 }
 
-/* --- demo cycling ---------------------------------------------------------- */
-
-static void aic_tick(lv_timer_t *timer)
-{
-    ARG_UNUSED(timer);
-    s_state = (s_state + 1) % AIC_STATE_COUNT;
-    aic_render(s_state);
-}
-
-/* --- entry point ----------------------------------------------------------- */
+/* --- ZMK entry point ------------------------------------------------------- */
 
 lv_obj_t *zmk_display_status_screen(void)
 {
@@ -252,11 +195,8 @@ lv_obj_t *zmk_display_status_screen(void)
     lv_obj_set_style_pad_all(s_content, 1, LV_PART_MAIN);
     lv_obj_clear_flag(s_content, LV_OBJ_FLAG_SCROLLABLE);
 
-    s_state = 0;
-    aic_render(s_state);
-
-    /* Auto-advance through the 12 states (no host link yet). */
-    lv_timer_create(aic_tick, AIC_CYCLE_MS, NULL);
+    /* Draw whatever we have (standby if the host hasn't spoken yet). */
+    aic_draw(&s_model);
 
     return screen;
 }

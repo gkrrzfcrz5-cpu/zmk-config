@@ -46,3 +46,16 @@ endif()
 if(CONFIG_ZMK_DISPLAY_STATUS_SCREEN_CUSTOM)
   target_sources(app PRIVATE src/status_screen.c)
 endif()
+
+# Phase 5 host-communication module (USB CDC-ACM JSON channel). Compiled into
+# ZMK's own `app` target (NOT a zephyr_library) for two reasons:
+#   1. it needs ZMK's PRIVATE app include dir to resolve <zmk/display.h>
+#      (for zmk_display_work_q(), used to marshal LVGL updates onto the display
+#      thread — LVGL is not thread-safe);
+#   2. its SYS_INIT() and K_THREAD_DEFINE() entries must not be dropped as unused
+#      archive members — app sources are linked non-lazily (same reason the
+#      status-screen override above uses target_sources(app ...)).
+# Guarded by our Kconfig symbol so the tester_xiao build (no CDC node) skips it.
+if(CONFIG_AIC_COMM)
+  target_sources(app PRIVATE src/aic_comm.c)
+endif()

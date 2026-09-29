@@ -11,3 +11,16 @@ config ZMK_BEHAVIOR_HAPTIC
     help
       Custom ZMK behavior that fires a DRV2605L one-shot haptic effect over raw
       I2C. Auto-enabled when an `aic,behavior-haptic` devicetree node is present.
+
+DT_CHOSEN_AIC_COMM_UART := aic,comm-uart
+
+config AIC_COMM
+    bool "AI Companion host communication (USB CDC-ACM JSON channel)"
+    default y if $(dt_chosen_enabled,$(DT_CHOSEN_AIC_COMM_UART))
+    help
+      Host <-> device communication over a USB CDC-ACM virtual serial port,
+      exchanging newline-delimited JSON (see docs/phase5-interface-contract.md).
+      The host pushes `screen`/`haptic`/`tasks`/`ping`; the device replies with
+      `input`/`hello`/`pong` and drives the LVGL status screen + DRV2605L haptic.
+      Auto-enabled when the `aic,comm-uart` chosen node is present. The required
+      USB CDC / SERIAL / UART symbols are turned on in the shield .conf.

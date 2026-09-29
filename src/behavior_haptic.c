@@ -30,6 +30,8 @@
 
 #include <zmk/behavior.h>
 
+#include "aic_haptic.h"
+
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #if DT_HAS_COMPAT_STATUS_OKAY(DT_DRV_COMPAT)
@@ -44,7 +46,6 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #define DRV_MODE_INTTRIG  0x00 /* exit standby, internal trigger mode */
 #define DRV_LIBRARY_ERM_A 0x01 /* ERM waveform library A */
-#define DRV_EFFECT_BUZZ1  0x2F /* effect 47: "Buzz 1 - 100%" */
 #define DRV_WAVESEQ_END   0x00
 #define DRV_GO_PLAY       0x01
 #define DRV_FEEDBACK_ERM_MASK 0x7F /* clear bit7 (N_ERM_LRA) -> ERM */
@@ -53,37 +54,47 @@ struct behavior_haptic_config {
     struct i2c_dt_spec i2c;
 };
 
-static int on_keymap_binding_pressed(struct zmk_behavior_binding *binding,
-                                     struct zmk_behavior_binding_event event) {
-    const struct device *dev = zmk_behavior_get_binding(binding->behavior_dev);
-    const struct behavior_haptic_config *cfg = dev->config;
+/* There is exactly one DRV2605L in this design. Capture its I2C spec at init so
+ * the public aic_haptic_play_effect() can fire without a behavior binding (the
+ * host `haptic` message path in src/aic_comm.c uses it). NULL until init runs. */
+static const struct i2c_dt_spec *s_haptic_i2c;
+
+void aic_haptic_play_effect(uint8_t effect_id) {
+    const struct i2c_dt_spec *i2c = s_haptic_i2c;
     uint8_t feedback;
 
-    if (!device_is_ready(cfg->i2c.bus)) {
+    if (i2c == NULL || !device_is_ready(i2c->bus)) {
         LOG_ERR("DRV2605L I2C bus not ready");
-        return ZMK_BEHAVIOR_OPAQUE;
+        return;
     }
 
     /* Exit standby into internal-trigger mode. */
-    i2c_reg_write_byte_dt(&cfg->i2c, DRV_REG_MODE, DRV_MODE_INTTRIG);
+    i2c_reg_write_byte_dt(i2c, DRV_REG_MODE, DRV_MODE_INTTRIG);
 
     /* Select ERM (clear N_ERM_LRA bit7) preserving the other feedback bits. */
-    if (i2c_reg_read_byte_dt(&cfg->i2c, DRV_REG_FEEDBACK, &feedback) == 0) {
-        i2c_reg_write_byte_dt(&cfg->i2c, DRV_REG_FEEDBACK,
-                              feedback & DRV_FEEDBACK_ERM_MASK);
+    if (i2c_reg_read_byte_dt(i2c, DRV_REG_FEEDBACK, &feedback) == 0) {
+        i2c_reg_write_byte_dt(i2c, DRV_REG_FEEDBACK, feedback & DRV_FEEDBACK_ERM_MASK);
     }
 
-    /* Load an ERM buzz waveform and fire it. */
-    i2c_reg_write_byte_dt(&cfg->i2c, DRV_REG_LIBRARY, DRV_LIBRARY_ERM_A);
-    i2c_reg_write_byte_dt(&cfg->i2c, DRV_REG_WAVESEQ1, DRV_EFFECT_BUZZ1);
-    i2c_reg_write_byte_dt(&cfg->i2c, DRV_REG_WAVESEQ2, DRV_WAVESEQ_END);
-    i2c_reg_write_byte_dt(&cfg->i2c, DRV_REG_GO, DRV_GO_PLAY);
+    /* Load the requested ERM effect as a single-entry waveform and fire it. */
+    i2c_reg_write_byte_dt(i2c, DRV_REG_LIBRARY, DRV_LIBRARY_ERM_A);
+    i2c_reg_write_byte_dt(i2c, DRV_REG_WAVESEQ1, effect_id);
+    i2c_reg_write_byte_dt(i2c, DRV_REG_WAVESEQ2, DRV_WAVESEQ_END);
+    i2c_reg_write_byte_dt(i2c, DRV_REG_GO, DRV_GO_PLAY);
+}
 
+static int on_keymap_binding_pressed(struct zmk_behavior_binding *binding,
+                                     struct zmk_behavior_binding_event event) {
+    ARG_UNUSED(binding);
+    ARG_UNUSED(event);
+    /* Keymap `&haptic` = the proven default buzz. */
+    aic_haptic_play_effect(AIC_HAPTIC_BUZZ1);
     return ZMK_BEHAVIOR_OPAQUE;
 }
 
 static int behavior_haptic_init(const struct device *dev) {
-    ARG_UNUSED(dev);
+    const struct behavior_haptic_config *cfg = dev->config;
+    s_haptic_i2c = &cfg->i2c;
     return 0;
 }
 
