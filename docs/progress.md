@@ -228,10 +228,11 @@ Interface contract agreed + written: `docs/phase5-interface-contract.md` (v0.2
 hand-off spec for the Optimus/host engineer). Transport v1 = USB CDC-ACM,
 newline-delimited JSON; host = source of truth; device = thin client.
 
-### Task ① — device-side USB CDC data channel  ✅ CODE-REVIEW (2026-09-29)
-Wrote the device side of the channel + a Mac-side manual test tool. **Not yet
-built or flashed** — CODE-REVIEW only; next gate is a CI BUILD, then HW-VERIFIED
-on the in-hand mono prototype.
+### Task ① — device-side USB CDC data channel  ✅ BUILD (2026-09-29)
+Wrote the device side of the channel + a Mac-side manual test tool. **Built in
+CI (BUILD), not yet flashed** — next gate is HW-VERIFIED on the in-hand mono
+prototype. CI run `36532096945` = success; artifact `firmware` 370,087 B (up
+from Phase 4d's 366,303 B, consistent with the added CDC channel + comm module).
 
 - **CDC-ACM node** (`ai_companion.overlay`): added a `zephyr,cdc-acm-uart` on
   `&zephyr_udc0` + a `chosen aic,comm-uart` alias. This is the same HID+CDC
