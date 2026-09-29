@@ -28,6 +28,7 @@ Interactive commands (type `help` to see them again):
     stop <id> <task>           -> screen STOPPED (interrupted)
     done <id> <task>           -> screen DONE
     buzz <block|stopped|done>  -> haptic cue
+    fx <1..123>                -> play a raw DRV2605L effect (tune the feel)
     ping                       -> liveness check (device replies pong)
     { ... }                    -> send a raw JSON line verbatim
     quit / Ctrl-D              -> exit
@@ -132,6 +133,14 @@ def build_message(cmd: str) -> dict | None:
                 "id": hid.strip(), "task": task.strip()}
     if verb == "buzz":
         return {"t": "haptic", "v": 1, "cue": rest.strip() or "block"}
+    if verb == "fx":
+        # fx <id>  -> play raw DRV2605L ROM effect (1..123), for tuning feel
+        try:
+            eid = int(rest.strip())
+        except ValueError:
+            print("usage: fx <1..123>")
+            return None
+        return {"t": "haptic", "v": 1, "id": eid}
     if verb == "ping":
         return {"t": "ping", "v": 1}
 
