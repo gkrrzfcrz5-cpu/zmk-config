@@ -228,11 +228,26 @@ Interface contract agreed + written: `docs/phase5-interface-contract.md` (v0.2
 hand-off spec for the Optimus/host engineer). Transport v1 = USB CDC-ACM,
 newline-delimited JSON; host = source of truth; device = thin client.
 
-### Task ① — device-side USB CDC data channel  ✅ BUILD (2026-09-29)
-Wrote the device side of the channel + a Mac-side manual test tool. **Built in
-CI (BUILD), not yet flashed** — next gate is HW-VERIFIED on the in-hand mono
-prototype. CI run `36532096945` = success; artifact `firmware` 370,087 B (up
-from Phase 4d's 366,303 B, consistent with the added CDC channel + comm module).
+### Task ① — device-side USB CDC data channel  ✅ HW-VERIFIED (2026-09-29)
+Wrote the device side of the channel + a Mac-side manual test tool, flashed, and
+verified on the in-hand mono prototype. CI run `36532096945` = success; artifact
+`firmware` 370,087 B (up from Phase 4d's 366,303 B, consistent with the added CDC
+channel + comm module).
+
+- **HW-VERIFIED ✅ (2026-09-29):** flashed the CI `.uf2` via the double-tap-reset
+  UF2 bootloader (`/Volumes/XIAO-SENSE`). Device enumerates a CDC serial port
+  (`/dev/tty.usbmodem*`) alongside HID. Confirmed live over the port:
+  device sends `hello` on connect (DTR), replies `pong` to `ping`, and the six
+  screen states render + switch on `screen` messages (READY clock / TASK /
+  PERMISSION Deny-Allow observed by the user). Motor buzzes on `haptic` cues once
+  the DRV2605L is wired (VIN→3V3, GND, SDA→D4, SCL→D5, OUT± →ERM motor).
+- **Haptic feel — tuning in progress:** `done` (was Sharp Tick, effect 24) felt
+  too faint on the ERM, so the default is now Strong Click (effect 1). Added a
+  dev message `{"t":"haptic","v":1,"id":N}` (+ `fx <id>` in `aic_push.py`) that
+  plays any DRV2605L ROM effect 1..123, so the feel can be swept live without a
+  reflash. `block`→double-click and `stopped`→buzz1 are kept. User to pick the
+  final `done` effect, then bake it in (one reflash). CI run `36535522684` =
+  success (fw with the raw-effect path), flashed and confirmed.
 
 - **CDC-ACM node** (`ai_companion.overlay`): added a `zephyr,cdc-acm-uart` on
   `&zephyr_udc0` + a `chosen aic,comm-uart` alias. This is the same HID+CDC
@@ -268,6 +283,6 @@ from Phase 4d's 366,303 B, consistent with the added CDC channel + comm module).
   commands or raw JSON, prints device→host lines. Doubles as the reference for
   the Optimus-side engineer.
 
-Next: CI BUILD to reach BUILD level; then flash + drive the screen/haptic from
-`tools/aic_push.py` for HW-VERIFIED. Then task ② (buttons emit `input` JSON),
-task ③ (3 distinct haptic patterns), task ④ (screen content polish).
+Next: user picks the final `done` haptic effect → bake it in (one reflash).
+Then task ② (buttons emit `input` JSON), task ③ (finalise 3 distinct haptic
+patterns), task ④ (screen content polish).
