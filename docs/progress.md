@@ -283,6 +283,29 @@ channel + comm module).
   commands or raw JSON, prints device→host lines. Doubles as the reference for
   the Optimus-side engineer.
 
+### Task ② — buttons emit `input` JSON to host  ✅ HW-VERIFIED (2026-09-29)
+The 4 buttons no longer type placeholder keycodes; each reports its press to the
+host. CI run `36538098367` = success; artifact `firmware` (ai_companion .uf2
+604,160 B). Flashed + verified on the mono prototype.
+
+- **New behavior `aic,behavior-input`** (`src/behavior_input.c`, binding yaml,
+  Kconfig `ZMK_BEHAVIOR_AIC_INPUT`): bound to the 4 buttons as `&aic_input
+  <KEY>` (one param = VOICE/YES/NO/OPEN). On press it calls
+  `aic_comm_send_input()`; compiled into `app` (needs app's PRIVATE include for
+  `<zmk/behavior.h>` and calls the app-target `aic_comm.c`).
+- **`src/aic_comm.c`**: `aic_comm_send_input(key)` sends
+  `{"t":"input","v":1,"src":"button","key":"…","screen":"…","id":"…"}`; it
+  snapshots the current screen `state`+`id` from each `screen` message (cleared
+  on disconnect) so a press is tagged with what was shown. Added a TX mutex —
+  `hello` (comm thread), `pong` (display queue) and `input` (behavior thread)
+  now transmit from three contexts, so lines are serialised to stay contiguous.
+- **HW-VERIFIED ✅ (2026-09-29):** with `tools/aic_push.py` connected, all four
+  buttons produced one `input` line each (VOICE/YES/NO/OPEN, press-only, no
+  duplicate on release). After `perm p1 …`, presses carried
+  `"screen":"PERMISSION","id":"p1"` — proving the host can bind a press to the
+  correct queue item even if the screen changed under a late press. `screen:""`
+  at standby (no host screen yet) is correct.
+
 Next: user picks the final `done` haptic effect → bake it in (one reflash).
-Then task ② (buttons emit `input` JSON), task ③ (finalise 3 distinct haptic
-patterns), task ④ (screen content polish).
+Then task ③ (finalise 3 distinct haptic patterns) and task ④ (screen content
+polish). Task ② done.
