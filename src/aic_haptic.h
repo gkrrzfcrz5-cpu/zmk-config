@@ -18,8 +18,10 @@
  * distinct feel of the other two is tuned + verified on the real motor in a
  * later step. Values are the effect numbers from the DRV2605L datasheet library.
  */
-#define AIC_HAPTIC_STRONG_CLICK 1   /* "Strong Click - 100%" */
+#define AIC_HAPTIC_STRONG_CLICK 1   /* "Strong Click - 100%" (too faint on this ERM) */
 #define AIC_HAPTIC_DOUBLE_CLICK 10  /* "Double Click - 100%" */
+#define AIC_HAPTIC_STRONG_BUZZ  14  /* "Strong Buzz - 100%" (short + strong, HW-verified done/block) */
+#define AIC_HAPTIC_ALERT_1000   16  /* "1000 ms Alert - 100%" (one long buzz, HW-verified stopped) */
 #define AIC_HAPTIC_SHARP_TICK   24  /* "Sharp Tick 1 - 100%" */
 #define AIC_HAPTIC_BUZZ1        47  /* "Buzz 1 - 100%" (HW-verified) */
 

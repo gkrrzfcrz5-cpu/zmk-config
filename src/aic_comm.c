@@ -208,19 +208,20 @@ static void aic_fire_cue(const char *cue)
 {
 #if IS_ENABLED(CONFIG_ZMK_BEHAVIOR_HAPTIC)
     /* Three deliberately-distinct patterns so the user can tell them apart by
-     * feel WITHOUT looking at the screen. They differ by RHYTHM (tap count /
-     * duration), which is far easier to distinguish than one effect's strength
-     * (an earlier single faint tick was easy to miss). Each tap is a
-     * full-strength Strong Click so the double tap reads cleanly.
-     *   done    -> one click            (做完:乾脆一下 嗒)
-     *   block   -> two clicks           (要權限/卡住:嗒—嗒,像敲門)
-     *   stopped -> one long buzz        (中斷:嗡———,明顯比 click 長)
-     * Feel to be HW-verified on the real motor; see docs/phase5-interface-contract.md §4.3. */
-    static const uint8_t done_seq[]    = {AIC_HAPTIC_STRONG_CLICK};
-    static const uint8_t block_seq[]   = {AIC_HAPTIC_STRONG_CLICK,
-                                          AIC_HAPTIC_DELAY_MS(80),
-                                          AIC_HAPTIC_STRONG_CLICK};
-    static const uint8_t stopped_seq[] = {AIC_HAPTIC_BUZZ1, AIC_HAPTIC_BUZZ1};
+     * feel WITHOUT looking at the screen. HW feel-test (2026-09-29) showed a
+     * Strong Click is too faint on this ERM (too short to spin the mass up), so
+     * every cue now uses buzz-class effects; the patterns differ by COUNT and
+     * DURATION, which the user confirmed are cleanly distinguishable:
+     *   done    -> one short strong buzz   (做完:有力一下 嗡)
+     *   block   -> two short strong buzzes (要權限/卡住:嗡—嗡,數得出兩下)
+     *   stopped -> one long buzz           (中斷:嗡———,明顯比 done 那下長)
+     * All three HW-verified by feel on the real motor; see
+     * docs/phase5-interface-contract.md §4.3. */
+    static const uint8_t done_seq[]    = {AIC_HAPTIC_STRONG_BUZZ};
+    static const uint8_t block_seq[]   = {AIC_HAPTIC_STRONG_BUZZ,
+                                          AIC_HAPTIC_DELAY_MS(200),
+                                          AIC_HAPTIC_STRONG_BUZZ};
+    static const uint8_t stopped_seq[] = {AIC_HAPTIC_ALERT_1000};
 
     if (strcmp(cue, "block") == 0) {
         aic_haptic_play_seq(block_seq, ARRAY_SIZE(block_seq));
