@@ -31,6 +31,24 @@
 
 Phase 1 **不需要**:語音、電池管理、正式 PCB。
 
+### Phase 1 核心 API = 3 種訊息
+
+**分工原則:Mac 端負責所有邏輯,硬體只負責顯示、提醒、回傳按鍵。** 裝置不用懂 AI 軟體、不跑 HTTP server、不知道 AI 在跑什麼工具。第一次連調只要下面**三種訊息**就能跑完整條權限迴路:
+
+| # | 方向 | 訊息 | 用途 |
+|---|---|---|---|
+| ① | Mac → 裝置 | `screen` | 叫裝置顯示某一頁(如 PERMISSION) |
+| ② | Mac → 裝置 | `haptic` | 叫裝置震一下提醒 |
+| ③ | 裝置 → Mac | `input` | 回報使用者按了哪顆鈕(帶 `id`) |
+
+```
+① {"t":"screen","v":1,"state":"PERMISSION","id":"perm-123","task":"Website","question":"執行 248 個測試?"}
+② {"t":"haptic","v":1,"cue":"block"}
+③ {"t":"input","v":1,"src":"button","key":"YES","screen":"PERMISSION","id":"perm-123"}
+```
+
+Mac 收到 ③ 後,用 `id` 確認「這筆權限仍有效」再轉交 AI 軟體執行(`id` 存在的唯一理由 = 防止使用者按下去時畫面已換頁、批准到別件)。其餘訊息(`tasks` 瀏覽清單、`ping`/`pong` 存活檢查、`hello` 握手)是**選配雜務,Phase 1 可不理**。
+
 ### Phase 2 / Phase 3 — 待與需求方展開(TBD)
 
 需求方規劃共三階段;Phase 2、3 內容待後續逐條確認後補入(預期方向:加入更多事件/佇列/多 session、切換到 BLE 無線、往正式 PCB 收斂)。
@@ -139,6 +157,27 @@ Phase 1 **不需要**:語音、電池管理、正式 PCB。
 ```
 裝置回 `pong`(§5.3)。
 
+### 4.5 「12 視覺畫面」↔ 6 協定 state 對映
+
+設計稿有一份完整的 **12 Core Screen States**(視覺全集,含吉祥物表情/彩色卡片);協定把它收斂成上表的 **6 個 `state`**。對映如下,好讓軟體團隊知道每個視覺畫面實際上要送哪種 `screen`:
+
+| 視覺畫面 | 送的協定 `state` | 說明 |
+|---|---|---|
+| HOME(首頁/總覽) | `READY` | 沒任務在跑的待機;統計數字由 host 決定要不要顯示 |
+| SESSIONS(任務清單) | *(不送 screen)* | 走 `tasks` 訊息,裝置端瀏覽翻頁 |
+| WORKING(執行中) | `TASK` | 進度/百分比塞進 `line` |
+| NEED YOU(需要你) | `WAITING` | 通用求助;細節回 Mac |
+| PERMISSIONS(權限佇列) | `PERMISSION` | 佇列在 host 端,裝置一次只顯示一件(§6) |
+| PERMISSION(權限細節) | `PERMISSION` | 直接對應,Yes/No |
+| DONE(完成) | `DONE` | 直接對應 |
+| ATTENTION(出錯/build 失敗) | `STOPPED` ⚠️ | 見 §9 待確認:`STOPPED` 原意是「中斷」非 build 失敗,語意待對齊 |
+| TIMEOUT(跑太久) | `WAITING` | 「跑很久了,要繼續嗎」= 等你決定 |
+| LISTENING(語音聆聽) | *(不送 screen)* | Voice 鈕本地觸發,語音 UI,v1 不含 |
+| PROCESSING(語音理解) | *(不送 screen)* | 同上 |
+| OPENING(開啟結果) | *(不送 screen)* | Open 鈕本地行為,裝置端瀏覽 |
+
+> 有 4 個畫面**不歸 host 管**(SESSIONS/OPENING 是裝置本地瀏覽、LISTENING/PROCESSING 是語音),對方**不用**為它們送 `screen`,以免誤以為漏做。
+
 ---
 
 ## 5. Device → Host 訊息
@@ -229,6 +268,7 @@ Phase 1 **不需要**:語音、電池管理、正式 PCB。
 3. `PERMISSION.question` 想放多長?裝置畫面空間有限,建議一句、必要時截斷。
 4. 「最近有動靜」怎麼判定(最後一次輸出的時間戳?),`TASK.line` 那一句話從哪來?
 5. 語音:Voice 鈕送到 host 後,要怎麼把它接到 AI 軟體的「開始/停止語音輸入」?
+6. **ATTENTION(build 失敗/程式錯誤)語意缺口:** 目前 6 個 `state` 沒有專屬的「錯誤」狀態,設計稿的 ATTENTION 只能勉強塞進 `STOPPED`(原意是「中斷」)。要嘛連調時決定「build 失敗也算 STOPPED」,要嘛之後給 6-state 加一個 `ERROR`。請對方確認偏好。
 
 ---
 
