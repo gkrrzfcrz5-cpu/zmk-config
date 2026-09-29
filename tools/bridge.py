@@ -247,7 +247,7 @@ def run_demo(bridge: MacBridge, auto_user: bool = False) -> int:
     bridge.log("=== Demo:模擬一次完整 AI 工作流程 ===")
 
     # 1) AI 開始執行任務 → 裝置顯示 WORKING
-    bridge.show_task("Website Redesign", "建置中…")
+    bridge.show_task("Website Redesign", "Building...")
     time.sleep(1.0)
 
     # 2) AI 要求執行測試 → 裝置震動 + 顯示 PERMISSION,等 Yes/No
@@ -255,14 +255,14 @@ def run_demo(bridge: MacBridge, auto_user: bool = False) -> int:
         bridge.log(">>> 請在裝置上按 Yes(D2)批准 <<<")
     auto("YES", "PERMISSION", "p1")
     decision = bridge.request_permission(
-        "p1", "Website Redesign", "執行 248 個測試?", timeout=45)
+        "p1", "Website Redesign", "Run 248 tests?", timeout=45)
     bridge.log(f"[MockAI] 收到權限結果:{decision}")
     if decision != "allow":
         bridge.log("[MockAI] 未獲批准,流程中止。")
         return 0
 
     # 3) 批准後 AI 跑測試
-    bridge.show_task("Website Redesign", "跑測試中…")
+    bridge.show_task("Website Redesign", "Running tests...")
     time.sleep(1.2)
 
     # 4) 任務完成 → 裝置顯示 DONE + 震動
@@ -282,12 +282,55 @@ def run_demo(bridge: MacBridge, auto_user: bool = False) -> int:
     return 0
 
 
+# --- 12-screen tour --------------------------------------------------------
+#
+# Walk the design's 12 Core Screen States once. Each entry maps a visual screen
+# to the protocol `state` that drives it (contract §4.5); state=None marks the
+# local/voice screens the host does NOT push a `screen` for — noted, not faked.
+TOUR = [
+    ("HOME",        "READY",      {"clock": "10:24"},                                          None,      ""),
+    ("SESSIONS",    None,         {},                                                          None,      "任務清單:走 tasks 訊息、裝置端瀏覽"),
+    ("WORKING",     "TASK",       {"task": "Website Redesign", "line": "Building 68%"},         None,      ""),
+    ("NEED YOU",    "WAITING",    {"task": "Website Redesign", "id": "n1"},                     "block",   ""),
+    ("PERMISSIONS", "PERMISSION", {"task": "3 pending", "question": "Run tests?", "id": "q1"},  "block",   "權限佇列:host 一次推一件"),
+    ("PERMISSION",  "PERMISSION", {"task": "Website Redesign", "question": "Run 248 tests?", "id": "p1"}, "block", ""),
+    ("DONE",        "DONE",       {"task": "Website Redesign", "line": "12 tests passed", "id": "d1"}, "done", ""),
+    ("ATTENTION",   "STOPPED",    {"task": "Website Redesign", "id": "e1"},                     "stopped", "出錯:暫映到 STOPPED(語意待對齊,契約 §9)"),
+    ("TIMEOUT",     "WAITING",    {"task": "Website Redesign", "id": "t1"},                     "block",   "跑太久:等你決定"),
+    ("LISTENING",   None,         {},                                                          None,      "語音聆聽:Voice 鈕本地觸發"),
+    ("PROCESSING",  None,         {},                                                          None,      "語音理解:同上"),
+    ("OPENING",     None,         {},                                                          None,      "開啟結果:Open 鈕本地行為"),
+]
+
+
+def run_tour(bridge: MacBridge, hold: float = 3.0) -> int:
+    """Show all 12 visual screens once: the 8 host-drivable ones render on the
+    real screen (+ their haptic), the 4 local/voice ones are noted only."""
+    bridge.log("=== 12 畫面巡覽(能推的 8 個上真螢幕,4 個本地/語音僅註記)===")
+    for i, (name, state, fields, cue, note) in enumerate(TOUR, 1):
+        tag = f"[{i:2d}/12] {name}"
+        if state is None:
+            bridge.log(f"{tag} —(本地/語音,host 不推 screen){'  ' + note if note else ''}")
+            continue
+        bridge.log(f"{tag} → {state}{'  ' + note if note else ''}")
+        bridge._screen(state, **fields)
+        if cue:
+            bridge._haptic(cue)
+        time.sleep(hold)
+    bridge.log("=== 巡覽完成 ===")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="AI Companion Mac Bridge + Mock AI")
     ap.add_argument("--loopback", action="store_true",
                     help="headless fake device with auto-presses (no hardware)")
     ap.add_argument("--demo", action="store_true",
                     help="run the 5-step workflow demo (default action)")
+    ap.add_argument("--tour", action="store_true",
+                    help="show all 12 visual screens once (auto-advance)")
+    ap.add_argument("--hold", type=float, default=3.0,
+                    help="tour: seconds to hold each screen (default 3.0)")
     ap.add_argument("--port", help="serial port (real device; default: auto)")
     ap.add_argument("--log", help="also append the event log to this file")
     args = ap.parse_args(argv)
@@ -304,6 +347,8 @@ def main(argv=None) -> int:
         return 1
 
     try:
+        if args.tour:
+            return run_tour(bridge, hold=args.hold)
         return run_demo(bridge, auto_user=args.loopback)
     finally:
         transport.close()
