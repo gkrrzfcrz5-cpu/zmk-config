@@ -154,6 +154,31 @@ static bool json_str(const char *s, const char *key, char *out, size_t out_sz)
     return true;
 }
 
+/* Parse the integer value of top-level `key` into *out. Returns true on a
+ * plain (optionally negative) integer value; ignores fractions. */
+static bool json_int(const char *s, const char *key, long *out)
+{
+    const char *v = json_value(s, key);
+    if (v == NULL) {
+        return false;
+    }
+    bool neg = false;
+    if (*v == '-') {
+        neg = true;
+        v++;
+    }
+    if (*v < '0' || *v > '9') {
+        return false;
+    }
+    long n = 0;
+    while (*v >= '0' && *v <= '9') {
+        n = n * 10 + (*v - '0');
+        v++;
+    }
+    *out = neg ? -n : n;
+    return true;
+}
+
 /* --- transmit -------------------------------------------------------------- */
 
 static void aic_send_line(const char *line)
@@ -181,7 +206,8 @@ static void aic_fire_cue(const char *cue)
     } else if (strcmp(cue, "stopped") == 0) {
         effect = AIC_HAPTIC_BUZZ1;        /* interrupted: one buzz */
     } else if (strcmp(cue, "done") == 0) {
-        effect = AIC_HAPTIC_SHARP_TICK;   /* finished: soft tick */
+        effect = AIC_HAPTIC_STRONG_CLICK; /* finished: one firm click (Sharp
+                                           * Tick was too faint on the ERM) */
     }
     aic_haptic_play_effect(effect);
 #else
@@ -213,6 +239,17 @@ static void aic_handle_message(const char *json)
         char cue[16];
         if (json_str(json, "cue", cue, sizeof(cue))) {
             aic_fire_cue(cue);
+        } else {
+            /* Dev/tuning aid: {"t":"haptic","v":1,"id":N} plays raw DRV2605L
+             * ROM effect N (1..123) so the real motor's feel can be swept live
+             * without a reflash per candidate. Not part of the host contract's
+             * semantic-cue path (§4.3); host production traffic uses "cue". */
+            long id;
+            if (json_int(json, "id", &id) && id >= 1 && id <= 123) {
+#if IS_ENABLED(CONFIG_ZMK_BEHAVIOR_HAPTIC)
+                aic_haptic_play_effect((uint8_t)id);
+#endif
+            }
         }
     } else if (strcmp(t, "ping") == 0) {
         aic_send_line("{\"t\":\"pong\",\"v\":1}");
