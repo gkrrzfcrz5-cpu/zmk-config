@@ -7,3 +7,7 @@ build/
 
 # macOS
 .DS_Store
+
+# Python bytecode cache (tools/)
+__pycache__/
+*.pyc
