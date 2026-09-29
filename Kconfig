@@ -24,3 +24,15 @@ config AIC_COMM
       `input`/`hello`/`pong` and drives the LVGL status screen + DRV2605L haptic.
       Auto-enabled when the `aic,comm-uart` chosen node is present. The required
       USB CDC / SERIAL / UART symbols are turned on in the shield .conf.
+
+config ZMK_BEHAVIOR_AIC_INPUT
+    bool "AI Companion physical-button input behavior"
+    default y
+    depends on DT_HAS_AIC_BEHAVIOR_INPUT_ENABLED && AIC_COMM
+    help
+      Custom ZMK behavior bound to the 4 buttons (Voice/Yes/No/Open). On press it
+      reports the button + current screen state/id to the host as an `input`
+      message over the CDC channel (src/behavior_input.c -> aic_comm_send_input).
+      Requires AIC_COMM. Auto-enabled when an `aic,behavior-input` node is
+      present (the ai_companion keymap defines one).
+

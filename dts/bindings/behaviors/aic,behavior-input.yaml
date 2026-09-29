@@ -1,0 +1,13 @@
+# Copyright (c) 2026 The AI Companion Contributors
+# SPDX-License-Identifier: MIT
+
+description: |
+  AI Companion physical-button behavior. Bound to the 4 buttons in the keymap
+  as `&aic_input <KEY>`, where the single parameter is the button id
+  (VOICE/YES/NO/OPEN). On press it sends an `input` message to the host over
+  the USB CDC-ACM channel naming the button plus the current screen state/id;
+  the host decides what the press means for the screen shown at that moment.
+
+compatible: "aic,behavior-input"
+
+include: one_param.yaml

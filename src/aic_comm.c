@@ -27,6 +27,7 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/uart.h>
 #include <zephyr/logging/log.h>
+#include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
 
@@ -34,6 +35,7 @@
 
 #include "aic_screen.h"
 #include "aic_haptic.h"
+#include "aic_input.h"
 
 LOG_MODULE_REGISTER(aic_comm, CONFIG_ZMK_LOG_LEVEL);
 
@@ -181,15 +183,23 @@ static bool json_int(const char *s, const char *key, long *out)
 
 /* --- transmit -------------------------------------------------------------- */
 
+/* Serialise transmits: hello (comm thread), pong (display queue) and input
+ * (behavior thread) can each call aic_send_line from a different context; the
+ * mutex keeps every line's bytes contiguous on the wire. All callers are thread/
+ * work contexts (never an ISR), so blocking on the lock is safe. */
+K_MUTEX_DEFINE(s_tx_mutex);
+
 static void aic_send_line(const char *line)
 {
     if (!device_is_ready(uart_dev)) {
         return;
     }
+    k_mutex_lock(&s_tx_mutex, K_FOREVER);
     for (const char *p = line; *p; p++) {
         uart_poll_out(uart_dev, (unsigned char)*p);
     }
     uart_poll_out(uart_dev, '\n');
+    k_mutex_unlock(&s_tx_mutex);
 }
 
 /* --- message dispatch (display work queue context) ------------------------- */
@@ -219,6 +229,15 @@ static void aic_fire_cue(const char *cue)
  * handler's stack small (the display/system work queue stack is modest). */
 static struct aic_screen_model s_work_model;
 
+/* The screen the device is currently showing, snapshotted from each `screen`
+ * message so a button press can tag its `input` with the right state + id.
+ * Written on the display queue, read on the behavior thread — a torn read is
+ * harmless (short strings; the host binds the response to the correct item via
+ * `id`, which is exactly what `id` is for when the screen changed under a late
+ * press). */
+static char s_cur_screen[AIC_STATE_LEN];
+static char s_cur_id[AIC_ID_LEN];
+
 static void aic_handle_message(const char *json)
 {
     char t[16];
@@ -234,6 +253,11 @@ static void aic_handle_message(const char *json)
         json_str(json, "question", s_work_model.question, sizeof(s_work_model.question));
         json_str(json, "clock", s_work_model.clock, sizeof(s_work_model.clock));
         json_str(json, "id", s_work_model.id, sizeof(s_work_model.id));
+        /* Remember what we are now showing, for button `input` tagging. */
+        strncpy(s_cur_screen, s_work_model.state, sizeof(s_cur_screen) - 1);
+        s_cur_screen[sizeof(s_cur_screen) - 1] = '\0';
+        strncpy(s_cur_id, s_work_model.id, sizeof(s_cur_id) - 1);
+        s_cur_id[sizeof(s_cur_id) - 1] = '\0';
         aic_screen_render(&s_work_model);
     } else if (strcmp(t, "haptic") == 0) {
         char cue[16];
@@ -257,6 +281,39 @@ static void aic_handle_message(const char *json)
     /* "tasks": browse-mode cache — deferred. Unknown `t`: ignore (§3). */
 }
 
+/* --- button input (behavior thread context) -------------------------------- */
+
+/*
+ * Called from the &aic_input keymap behavior (src/behavior_input.c) when a
+ * physical button is pressed. Report WHICH button plus the current screen state
+ * + id; the host decides what the press means for that screen (contract §5.1).
+ */
+void aic_comm_send_input(uint32_t key)
+{
+    const char *k;
+    switch (key) {
+    case AIC_KEY_VOICE: k = "VOICE"; break;
+    case AIC_KEY_YES:   k = "YES";   break;
+    case AIC_KEY_NO:    k = "NO";    break;
+    case AIC_KEY_OPEN:  k = "OPEN";  break;
+    default:            return;
+    }
+
+    char line[160];
+    if (s_cur_id[0] != '\0') {
+        snprintf(line, sizeof(line),
+                 "{\"t\":\"input\",\"v\":1,\"src\":\"button\",\"key\":\"%s\","
+                 "\"screen\":\"%s\",\"id\":\"%s\"}",
+                 k, s_cur_screen, s_cur_id);
+    } else {
+        snprintf(line, sizeof(line),
+                 "{\"t\":\"input\",\"v\":1,\"src\":\"button\",\"key\":\"%s\","
+                 "\"screen\":\"%s\"}",
+                 k, s_cur_screen);
+    }
+    aic_send_line(line);
+}
+
 static struct aic_line s_work_line; /* display-queue only */
 
 static void aic_process_work_cb(struct k_work *work)
@@ -277,6 +334,9 @@ static void aic_standby_work_cb(struct k_work *work)
     struct aic_screen_model standby;
     memset(&standby, 0, sizeof(standby));
     aic_screen_render(&standby);
+    /* No live screen context once the host is gone. */
+    s_cur_screen[0] = '\0';
+    s_cur_id[0] = '\0';
 }
 K_WORK_DEFINE(s_standby_work, aic_standby_work_cb);
 

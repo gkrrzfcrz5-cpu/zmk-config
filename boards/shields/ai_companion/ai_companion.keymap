@@ -9,25 +9,35 @@
  * scroll, handled natively by macOS — no host app required.
  *   Encoder turn -> right = Scroll Up, left = Scroll Down
  *
- * The 4 buttons use PLACEHOLDER test keycodes for wiring verification; Phase 5
- * replaces these with the real Mac <-> device signalling:
- *   Voice -> V,  Yes -> Y,  No -> N,  Open -> O
+ * The 4 buttons report their press to the Mac as an `input` message over the
+ * USB CDC-ACM channel (Phase 5): each is bound to `&aic_input <KEY>` and the
+ * host decides what the press means for the screen currently shown
+ * (docs/phase5-interface-contract.md §5.1). They no longer type keycodes.
+ *   Voice -> VOICE,  Yes -> YES,  No -> NO,  Open -> OPEN
  *
- * The DRV2605L haptic motor is HW-verified (2026-09-28); it will be driven by
- * host commands in Phase 5, not by a physical button, so the Open button is
- * bound to its normal placeholder keycode (&kp O). The `&haptic` behavior stays
- * defined in the devicetree (node drv2605@5a) ready for Phase 5 host control.
+ * The DRV2605L haptic motor is HW-verified (2026-09-28); it is driven by host
+ * commands in Phase 5, not by a physical button. The `&haptic` behavior stays
+ * defined in the devicetree (node drv2605@5a) for host control.
  *
  * The rotary encoder is a 4-pin module (SIGA/SIGB/VCC/GND) whose push switch is
  * not routed to the header, so only rotation is used (no encoder-push button).
  *
- * How to verify (no physical buttons needed): open any text field, then briefly
- * touch each pin to GND with a jumper -> the matching letter is typed. Once the
- * physical encoder is fitted, turning it scrolls the focused window.
+ * How to verify: connect the Mac test tool (tools/aic_push.py) and press each
+ * button -> an `input` line prints with the matching key. Turning the fitted
+ * encoder scrolls the focused window.
  */
 
 #include <behaviors.dtsi>
 #include <dt-bindings/zmk/keys.h>
+
+/*
+ * Physical button ids passed to &aic_input. KEEP IN SYNC with the AIC_KEY_*
+ * macros in src/aic_input.h.
+ */
+#define AIC_VOICE 0
+#define AIC_YES   1
+#define AIC_NO    2
+#define AIC_OPEN  3
 
 /*
  * Raise the default mouse-scroll speed BEFORE including pointing.h so SCRL_UP /
@@ -53,6 +63,14 @@
             bindings = <&msc SCRL_UP>, <&msc SCRL_DOWN>;
             tap-ms = <50>;
         };
+
+        // Physical-button behaviour: on press, report which button (the single
+        // parameter, AIC_VOICE/YES/NO/OPEN) to the host as an `input` message.
+        // Implemented in src/behavior_input.c (compatible "aic,behavior-input").
+        aic_input: aic_input {
+            compatible = "aic,behavior-input";
+            #binding-cells = <1>;
+        };
     };
 };
 
@@ -75,7 +93,7 @@
         default_layer {
             display-name = "AICompanion";
             bindings = <
-                &kp V   &kp Y   &kp N   &kp O
+                &aic_input AIC_VOICE   &aic_input AIC_YES   &aic_input AIC_NO   &aic_input AIC_OPEN
             >;
             // Encoder rotation = mouse-wheel scroll (real function: scroll the
             // focused Mac/Optimus window). Rotation hardware HW-verified 2026-09-28

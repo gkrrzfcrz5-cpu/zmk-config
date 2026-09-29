@@ -59,3 +59,12 @@ endif()
 if(CONFIG_AIC_COMM)
   target_sources(app PRIVATE src/aic_comm.c)
 endif()
+
+# Physical-button behavior: on press, report the button + current screen to the
+# host as an `input` message. Compiled into `app` (same reasons as aic_comm.c:
+# needs app's PRIVATE include for <zmk/behavior.h> + <drivers/behavior.h>, must
+# not be lazily dropped, and it calls aic_comm_send_input() which lives in the
+# app-target aic_comm.c). Gated by its Kconfig (implies AIC_COMM).
+if(CONFIG_ZMK_BEHAVIOR_AIC_INPUT)
+  target_sources(app PRIVATE src/behavior_input.c)
+endif()
