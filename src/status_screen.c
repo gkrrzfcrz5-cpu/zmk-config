@@ -76,6 +76,268 @@ static const char *or_dash(const char *s)
     return (s && s[0]) ? s : "—";
 }
 
+#if defined(AIC_COLOR_UI)
+/* ================= COLOUR 320x170 landscape layout ========================= */
+/*
+ * Design language (matches the "12 Core Screen States" mockup): ONE warm-orange
+ * accent on near-black, a top status bar (logo square + STATE + signal bars), a
+ * robot mascot with per-state expressions, and a bottom status line. Everything
+ * is built from plain rounded-rect objects (no extra LVGL features to enable)
+ * plus labels, so it stays portable and cheap.
+ *
+ * NOTE: the count/list/progress-bar richness of the mockup (HOME's 3 counters,
+ * the SESSIONS list, WORKING's % bar, the PERMISSIONS queue) needs data the host
+ * does not send yet; those screens render a faithful single-item version for now
+ * and get wired to real data once the JSON contract is extended (Phase B).
+ */
+
+#define AC_ACCENT lv_color_hex(0xF5551E)   /* the one accent: warm orange */
+#define AC_WHITE  lv_color_white()
+#define AC_GREY   lv_color_hex(0x9096A0)    /* secondary text / labels */
+#define AC_BARS   lv_color_hex(0xC8CDD4)    /* signal bars */
+#define AC_ROW    lv_color_hex(0x1C2026)    /* highlighted row / Deny button / icon bg */
+#define AC_EYE    lv_color_hex(0x14181E)    /* mascot features on the white face */
+
+/* Our single drawing primitive: a styled rectangle (no border/pad/scrollbar). */
+static lv_obj_t *aic_box(lv_obj_t *par, lv_coord_t w, lv_coord_t h,
+                         lv_color_t col, lv_coord_t radius)
+{
+    lv_obj_t *o = lv_obj_create(par ? par : s_content);
+    lv_obj_remove_style_all(o);
+    lv_obj_set_size(o, w, h);
+    lv_obj_set_style_bg_color(o, col, LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(o, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_radius(o, radius, LV_PART_MAIN);
+    lv_obj_clear_flag(o, LV_OBJ_FLAG_SCROLLABLE);
+    return o;
+}
+
+/* Coloured, left-aligned label; wraps within `w` px when `wrap` is set. */
+static lv_obj_t *aic_text(const char *txt, const lv_font_t *font, lv_color_t col,
+                          lv_align_t align, lv_coord_t x, lv_coord_t y,
+                          lv_coord_t w, bool wrap)
+{
+    lv_obj_t *l = lv_label_create(s_content);
+    lv_label_set_text(l, txt);
+    lv_obj_set_style_text_font(l, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(l, col, LV_PART_MAIN);
+    if (wrap) {
+        lv_obj_set_width(l, w);
+        lv_label_set_long_mode(l, LV_LABEL_LONG_WRAP);
+    }
+    lv_obj_align(l, align, x, y);
+    return l;
+}
+
+/* Top status bar: logo square (left) + STATE title + 4 ascending signal bars. */
+static void aic_topbar(const char *title)
+{
+    lv_obj_t *logo = aic_box(s_content, 14, 14, AC_GREY, 3);
+    lv_obj_align(logo, LV_ALIGN_TOP_LEFT, 8, 7);
+
+    lv_obj_t *t = lv_label_create(s_content);
+    lv_label_set_text(t, title);
+    lv_obj_set_style_text_font(t, AIC_F_SMALL, LV_PART_MAIN);
+    lv_obj_set_style_text_color(t, AC_GREY, LV_PART_MAIN);
+    lv_obj_set_style_text_letter_space(t, 2, LV_PART_MAIN);
+    lv_obj_align(t, LV_ALIGN_TOP_LEFT, 30, 8);
+
+    static const lv_coord_t hs[4] = {5, 8, 11, 14};
+    for (int i = 0; i < 4; i++) {
+        lv_obj_t *b = aic_box(s_content, 3, hs[i], AC_BARS, 1);
+        lv_obj_align(b, LV_ALIGN_TOP_RIGHT, -((3 - i) * 5) - 2, 8 + (14 - hs[i]));
+    }
+}
+
+/* Bottom status line: small grey left + right labels (either may be NULL). */
+static void aic_footer(const char *left, const char *right)
+{
+    if (left && left[0]) {
+        aic_text(left, AIC_F_SMALL, AC_GREY, LV_ALIGN_BOTTOM_LEFT, 8, -6, 0, false);
+    }
+    if (right && right[0]) {
+        aic_text(right, AIC_F_SMALL, AC_GREY, LV_ALIGN_BOTTOM_RIGHT, -8, -6, 0, false);
+    }
+}
+
+/* A filled action button pinned to a bottom corner (Deny=grey / Allow=orange). */
+static void aic_btn(const char *text, lv_color_t bg, bool left)
+{
+    lv_obj_t *b = aic_box(s_content, 138, 32, bg, 6);
+    lv_obj_align(b, left ? LV_ALIGN_BOTTOM_LEFT : LV_ALIGN_BOTTOM_RIGHT,
+                 left ? 10 : -10, -8);
+    lv_obj_t *l = lv_label_create(b);
+    lv_label_set_text(l, text);
+    lv_obj_set_style_text_font(l, AIC_F_SMALL, LV_PART_MAIN);
+    lv_obj_set_style_text_color(l, AC_WHITE, LV_PART_MAIN);
+    lv_obj_center(l);
+}
+
+/* Robot mascot, centred at (dx,dy) offset from the panel centre. `accent_marks`
+ * adds two orange ticks above the head (alert / celebrate). */
+enum { AIC_FACE_NEUTRAL, AIC_FACE_HAPPY, AIC_FACE_WORRIED, AIC_FACE_SAD };
+static lv_obj_t *aic_face(lv_coord_t dx, lv_coord_t dy, int expr, bool accent_marks)
+{
+    lv_obj_t *head = aic_box(s_content, 64, 64, AC_WHITE, 16);
+    lv_obj_align(head, LV_ALIGN_CENTER, dx, dy);
+
+    lv_coord_t eye_h = (expr == AIC_FACE_HAPPY) ? 6 : 16;
+    lv_coord_t eye_y = (expr == AIC_FACE_SAD) ? -2 : -6;
+    lv_obj_t *le = aic_box(head, 10, eye_h, AC_EYE, 3);
+    lv_obj_align(le, LV_ALIGN_CENTER, -14, eye_y);
+    lv_obj_t *re = aic_box(head, 10, eye_h, AC_EYE, 3);
+    lv_obj_align(re, LV_ALIGN_CENTER, 14, eye_y);
+
+    if (expr == AIC_FACE_HAPPY) {
+        lv_obj_t *m = aic_box(head, 24, 8, AC_EYE, 4);   /* smile */
+        lv_obj_align(m, LV_ALIGN_CENTER, 0, 18);
+    } else {
+        lv_obj_t *m = aic_box(head, 16, 4, AC_EYE, 2);   /* neutral/frown bar */
+        lv_obj_align(m, LV_ALIGN_CENTER, 0, (expr == AIC_FACE_WORRIED) ? 20 : 18);
+    }
+
+    if (accent_marks) {
+        lv_obj_t *m1 = aic_box(s_content, 4, 14, AC_ACCENT, 2);
+        lv_obj_align_to(m1, head, LV_ALIGN_OUT_TOP_MID, -9, -2);
+        lv_obj_t *m2 = aic_box(s_content, 4, 14, AC_ACCENT, 2);
+        lv_obj_align_to(m2, head, LV_ALIGN_OUT_TOP_MID, 9, -2);
+    }
+    return head;
+}
+
+/* Left = mascot, right = a headline + a sub-line. The shared body layout used by
+ * WORKING / NEED YOU / ATTENTION / DONE. */
+static void aic_body_lr(int expr, bool marks, const char *headline,
+                        lv_color_t head_col, const char *sub)
+{
+    aic_face(-96, 4, expr, marks);
+    aic_text(headline, AIC_F_BIG, head_col, LV_ALIGN_TOP_LEFT, 116, 42, 196, true);
+    aic_text(sub, AIC_F_SMALL, AC_GREY, LV_ALIGN_TOP_LEFT, 116, 100, 196, true);
+}
+
+static void aic_draw(const struct aic_screen_model *m)
+{
+    lv_obj_clean(s_content);
+
+    /* Standby (pre-connect / disconnected). */
+    if (m->state[0] == '\0') {
+        aic_face(-96, 4, AIC_FACE_NEUTRAL, false);
+        aic_text("AI Companion", AIC_F_BIG, AC_WHITE, LV_ALIGN_TOP_LEFT, 116, 44, 196, true);
+        aic_text("waiting for host", AIC_F_SMALL, AC_GREY, LV_ALIGN_TOP_LEFT, 116, 100, 196, true);
+        return;
+    }
+
+    if (strcmp(m->state, "READY") == 0) {                 /* HOME */
+        aic_topbar("HOME");
+        aic_face(-96, 4, AIC_FACE_NEUTRAL, false);
+        aic_text(or_dash(m->clock), AIC_F_HUGE, AC_WHITE, LV_ALIGN_CENTER, 48, -4, 0, false);
+        aic_footer("READY WHEN YOU ARE", or_dash(m->clock));
+        return;
+    }
+
+    if (strcmp(m->state, "TASK") == 0) {                  /* WORKING */
+        aic_topbar("WORKING");
+        aic_body_lr(AIC_FACE_NEUTRAL, false, or_dash(m->task), AC_WHITE, or_dash(m->line));
+        aic_footer("WORKING", "STAYING ON IT");
+        return;
+    }
+
+    if (strcmp(m->state, "WAITING") == 0) {               /* NEED YOU */
+        aic_topbar("NEED YOU");
+        aic_body_lr(AIC_FACE_WORRIED, true, "I NEED YOUR HELP", AC_WHITE, or_dash(m->task));
+        return;
+    }
+
+    if (strcmp(m->state, "PERMISSION") == 0) {            /* PERMISSION detail */
+        aic_topbar("PERMISSION");
+        aic_text(or_dash(m->question), AIC_F_BIG, AC_WHITE, LV_ALIGN_TOP_LEFT, 12, 34, 296, true);
+        aic_text(or_dash(m->task), AIC_F_SMALL, AC_GREY, LV_ALIGN_TOP_LEFT, 12, 90, 296, true);
+        aic_btn(LV_SYMBOL_CLOSE " Deny", AC_ROW, true);
+        aic_btn(LV_SYMBOL_OK " Allow", AC_ACCENT, false);
+        return;
+    }
+
+    if (strcmp(m->state, "STOPPED") == 0) {               /* ATTENTION */
+        aic_topbar("ATTENTION");
+        lv_obj_t *head = aic_face(-96, 4, AIC_FACE_SAD, false);
+        lv_obj_t *badge = aic_box(s_content, 22, 22, AC_ACCENT, 11);
+        lv_obj_align_to(badge, head, LV_ALIGN_TOP_RIGHT, 8, -6);
+        lv_obj_t *bang = lv_label_create(badge);
+        lv_label_set_text(bang, "!");
+        lv_obj_set_style_text_font(bang, AIC_F_MED, LV_PART_MAIN);
+        lv_obj_set_style_text_color(bang, AC_WHITE, LV_PART_MAIN);
+        lv_obj_center(bang);
+        aic_text(or_dash(m->task), AIC_F_BIG, AC_WHITE, LV_ALIGN_TOP_LEFT, 116, 42, 196, true);
+        aic_text(or_dash(m->line), AIC_F_SMALL, AC_GREY, LV_ALIGN_TOP_LEFT, 116, 100, 196, true);
+        return;
+    }
+
+    if (strcmp(m->state, "DONE") == 0) {                  /* DONE */
+        aic_topbar("DONE");
+        aic_body_lr(AIC_FACE_HAPPY, true, or_dash(m->task), AC_WHITE, or_dash(m->line));
+        aic_footer("DONE", "GREAT WORK!");
+        return;
+    }
+
+    if (strcmp(m->state, "SESSIONS") == 0) {              /* Session list */
+        aic_topbar("SESSIONS");
+        lv_obj_t *row = aic_box(s_content, 300, 36, AC_ROW, 6);
+        lv_obj_align(row, LV_ALIGN_TOP_MID, 0, 42);
+        lv_obj_t *dot = aic_box(row, 10, 10, AC_ACCENT, 5);
+        lv_obj_align(dot, LV_ALIGN_LEFT_MID, 10, 0);
+        aic_text(or_dash(m->task), AIC_F_MED, AC_WHITE, LV_ALIGN_TOP_LEFT, 42, 51, 256, false);
+        aic_footer(LV_SYMBOL_LIST " your tasks", NULL);
+        return;
+    }
+
+    if (strcmp(m->state, "LISTENING") == 0) {             /* Voice listening */
+        aic_topbar("LISTENING");
+        lv_obj_t *circ = aic_box(s_content, 60, 60, AC_ROW, 30);
+        lv_obj_align(circ, LV_ALIGN_CENTER, 0, -6);
+        lv_obj_t *mic = aic_box(circ, 16, 26, AC_WHITE, 8);
+        lv_obj_align(mic, LV_ALIGN_CENTER, 0, -2);
+        lv_obj_t *w1 = aic_box(s_content, 4, 26, AC_ACCENT, 2);
+        lv_obj_align(w1, LV_ALIGN_CENTER, -46, -6);
+        lv_obj_t *w2 = aic_box(s_content, 4, 26, AC_ACCENT, 2);
+        lv_obj_align(w2, LV_ALIGN_CENTER, 46, -6);
+        aic_text("Speak now...", AIC_F_MED, AC_WHITE, LV_ALIGN_CENTER, 0, 46, 0, false);
+        return;
+    }
+
+    if (strcmp(m->state, "PROCESSING") == 0) {            /* Voice processing */
+        aic_topbar("PROCESSING");
+        aic_face(-70, -10, AIC_FACE_NEUTRAL, false);
+        for (int i = 0; i < 3; i++) {
+            lv_obj_t *d = aic_box(s_content, 8, 8, AC_ACCENT, 4);
+            lv_obj_align(d, LV_ALIGN_CENTER, 12 + i * 16, -10);
+        }
+        aic_text("Understanding your request...", AIC_F_SMALL, AC_WHITE,
+                 LV_ALIGN_BOTTOM_MID, 0, -18, 0, false);
+        return;
+    }
+
+    if (strcmp(m->state, "OPENING") == 0) {               /* Opening result */
+        aic_topbar("OPENING");
+        lv_obj_t *doc = aic_box(s_content, 46, 54, AC_ROW, 6);
+        lv_obj_align(doc, LV_ALIGN_CENTER, 0, -20);
+        for (int i = 0; i < 3; i++) {
+            lv_obj_t *ln = aic_box(doc, 26, 4, AC_ACCENT, 2);
+            lv_obj_align(ln, LV_ALIGN_TOP_LEFT, 10, 12 + i * 12);
+        }
+        aic_text("Opening result...", AIC_F_MED, AC_WHITE, LV_ALIGN_CENTER, 0, 32, 0, false);
+        aic_text(or_dash(m->task), AIC_F_SMALL, AC_GREY, LV_ALIGN_CENTER, 0, 56, 0, false);
+        return;
+    }
+
+    /* Unknown state (forward-compat): standby-style fallback. */
+    aic_topbar(or_dash(m->state));
+    aic_body_lr(AIC_FACE_NEUTRAL, false, "AI Companion", AC_WHITE, or_dash(m->state));
+}
+
+#else
+/* ======================= MONO 128x64 layout (verbatim) ===================== */
+
+/* Plain white label at an alignment (mono uses only white on black). */
 static lv_obj_t *aic_label(const char *text, const lv_font_t *font,
                            lv_align_t align, lv_coord_t x, lv_coord_t y)
 {
@@ -100,142 +362,6 @@ static void aic_chip_f(const char *text, const lv_font_t *font, lv_align_t align
     lv_obj_set_style_radius(c, 2, LV_PART_MAIN);
     lv_obj_align(c, align, 0, 0);
 }
-
-#if defined(AIC_COLOR_UI)
-/* ======================= COLOUR 170x320 layout ============================= */
-
-#define AIC_C_WHITE  lv_color_white()
-#define AIC_C_GREY   lv_color_hex(0x94A3B8)
-#define AIC_C_GREEN  lv_color_hex(0x22C55E)
-#define AIC_C_CYAN   lv_color_hex(0x38BDF8)
-#define AIC_C_AMBER  lv_color_hex(0xF59E0B)
-#define AIC_C_RED    lv_color_hex(0xEF4444)
-#define AIC_C_PURPLE lv_color_hex(0xA78BFA)
-
-#define AIC_COL(l, c) lv_obj_set_style_text_color((l), (c), LV_PART_MAIN)
-
-/* Centred, colour-tinted state header pinned to the top. */
-static void aic_header_c(const char *title, lv_color_t accent)
-{
-    lv_obj_t *l = aic_label(title, AIC_F_MED, LV_ALIGN_TOP_MID, 0, 10);
-    AIC_COL(l, accent);
-}
-
-/* Word-wrapping, centre-aligned label placed in the middle band of the panel. */
-static lv_obj_t *aic_wrap_c(const char *text, const lv_font_t *font,
-                            lv_coord_t y, lv_color_t col)
-{
-    lv_obj_t *l = lv_label_create(s_content);
-    lv_label_set_text(l, text);
-    lv_obj_set_style_text_font(l, font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(l, col, LV_PART_MAIN);
-    lv_obj_set_width(l, lv_disp_get_hor_res(NULL) - 16);
-    lv_label_set_long_mode(l, LV_LABEL_LONG_WRAP);
-    lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-    lv_obj_align(l, LV_ALIGN_CENTER, 0, y);
-    return l;
-}
-
-static void aic_draw(const struct aic_screen_model *m)
-{
-    lv_obj_clean(s_content);
-
-    /* Empty state = local standby (pre-connect / disconnected). */
-    if (m->state[0] == '\0') {
-        aic_label("AI Companion", AIC_F_BIG, LV_ALIGN_CENTER, 0, -18);
-        AIC_COL(aic_label("waiting for host", AIC_F_SMALL, LV_ALIGN_CENTER, 0, 22),
-                AIC_C_GREY);
-        return;
-    }
-
-    if (strcmp(m->state, "READY") == 0) {
-        aic_label(or_dash(m->clock), AIC_F_HUGE, LV_ALIGN_CENTER, 0, -24);
-        AIC_COL(aic_label("READY", AIC_F_MED, LV_ALIGN_CENTER, 0, 40), AIC_C_GREEN);
-        return;
-    }
-
-    if (strcmp(m->state, "TASK") == 0) {
-        aic_header_c("RUNNING", AIC_C_CYAN);
-        aic_wrap_c(or_dash(m->task), AIC_F_BIG, -10, AIC_C_WHITE);
-        AIC_COL(aic_label(or_dash(m->line), AIC_F_SMALL, LV_ALIGN_CENTER, 0, 54),
-                AIC_C_GREY);
-        return;
-    }
-
-    if (strcmp(m->state, "PERMISSION") == 0) {
-        aic_header_c("PERMISSION", AIC_C_AMBER);
-        aic_wrap_c(or_dash(m->question), AIC_F_BIG, -20, AIC_C_WHITE);
-        AIC_COL(aic_label(or_dash(m->task), AIC_F_SMALL, LV_ALIGN_CENTER, 0, 34),
-                AIC_C_GREY);
-        aic_chip_f(LV_SYMBOL_CLOSE " Deny", AIC_F_MED, LV_ALIGN_BOTTOM_LEFT);
-        aic_chip_f(LV_SYMBOL_OK " Allow", AIC_F_MED, LV_ALIGN_BOTTOM_RIGHT);
-        return;
-    }
-
-    if (strcmp(m->state, "WAITING") == 0) {
-        aic_header_c("WAITING", AIC_C_AMBER);
-        aic_wrap_c(or_dash(m->task), AIC_F_BIG, -10, AIC_C_WHITE);
-        AIC_COL(aic_label("waiting for you", AIC_F_SMALL, LV_ALIGN_BOTTOM_MID, 0, -12),
-                AIC_C_AMBER);
-        return;
-    }
-
-    if (strcmp(m->state, "STOPPED") == 0) {
-        aic_header_c("STOPPED", AIC_C_RED);
-        aic_wrap_c(or_dash(m->task), AIC_F_BIG, -10, AIC_C_WHITE);
-        AIC_COL(aic_label(LV_SYMBOL_WARNING " stopped", AIC_F_SMALL,
-                          LV_ALIGN_BOTTOM_MID, 0, -12), AIC_C_RED);
-        return;
-    }
-
-    if (strcmp(m->state, "DONE") == 0) {
-        aic_header_c("DONE", AIC_C_GREEN);
-        aic_wrap_c(or_dash(m->task), AIC_F_BIG, -10, AIC_C_WHITE);
-        AIC_COL(aic_label(LV_SYMBOL_OK " done", AIC_F_SMALL,
-                          LV_ALIGN_BOTTOM_MID, 0, -12), AIC_C_GREEN);
-        return;
-    }
-
-    if (strcmp(m->state, "SESSIONS") == 0) {
-        aic_header_c("SESSIONS", AIC_C_CYAN);
-        aic_wrap_c(or_dash(m->task), AIC_F_BIG, -10, AIC_C_WHITE);
-        AIC_COL(aic_label(LV_SYMBOL_LIST " your tasks", AIC_F_SMALL,
-                          LV_ALIGN_BOTTOM_MID, 0, -12), AIC_C_CYAN);
-        return;
-    }
-
-    if (strcmp(m->state, "LISTENING") == 0) {
-        aic_header_c("LISTENING", AIC_C_PURPLE);
-        AIC_COL(aic_label(LV_SYMBOL_AUDIO, AIC_F_HUGE, LV_ALIGN_CENTER, 0, -20),
-                AIC_C_PURPLE);
-        aic_label("listening...", AIC_F_MED, LV_ALIGN_CENTER, 0, 44);
-        return;
-    }
-
-    if (strcmp(m->state, "PROCESSING") == 0) {
-        aic_header_c("PROCESSING", AIC_C_PURPLE);
-        AIC_COL(aic_label(LV_SYMBOL_REFRESH, AIC_F_HUGE, LV_ALIGN_CENTER, 0, -20),
-                AIC_C_PURPLE);
-        aic_label("thinking...", AIC_F_MED, LV_ALIGN_CENTER, 0, 44);
-        return;
-    }
-
-    if (strcmp(m->state, "OPENING") == 0) {
-        aic_header_c("OPENING", AIC_C_PURPLE);
-        aic_wrap_c(or_dash(m->task), AIC_F_BIG, -10, AIC_C_WHITE);
-        AIC_COL(aic_label(LV_SYMBOL_EYE_OPEN " opening...", AIC_F_SMALL,
-                          LV_ALIGN_BOTTOM_MID, 0, -12), AIC_C_PURPLE);
-        return;
-    }
-
-    /* Unknown state (forward-compat): fall back to standby wording. */
-    aic_label("AI Companion", AIC_F_BIG, LV_ALIGN_CENTER, 0, -18);
-    AIC_COL(aic_label(or_dash(m->state), AIC_F_SMALL, LV_ALIGN_CENTER, 0, 22),
-            AIC_C_GREY);
-}
-
-#else
-/* ======================= MONO 128x64 layout (verbatim) ===================== */
 
 /* Word-wrapping label pinned to a top-left box the width of the panel. */
 static lv_obj_t *aic_label_wrap(const char *text, const lv_font_t *font, lv_coord_t y)
