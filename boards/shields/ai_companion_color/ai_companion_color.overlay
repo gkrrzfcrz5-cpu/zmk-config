@@ -18,11 +18,13 @@
  * 11-pin header (D0-D10) does NOT expose enough pins for panel + 5 buttons +
  * encoder + haptic, so this shield REQUIRES the Plus.
  *
- * VERIFICATION LEVEL: BUILD only. Nothing here has been flashed or wired yet.
+ * VERIFICATION LEVEL: HW-VERIFIED (panel lights up, 12 screens push over USB).
  * The ST7789 init values are borrowed from Zephyr's own generic ST7789V
- * reference overlay (boards/shields/st7789v_generic); the 170x320 panel adds an
- * x-offset of 35 = (240-170)/2 because the ST7789 controller RAM is 240 wide.
- * Both the offset and the SPI clock speed are to be confirmed at bring-up.
+ * reference overlay (boards/shields/st7789v_generic). The panel runs LANDSCAPE
+ * 320x170 (rotated 90 deg via the MADCTL MV bit) to fit the horizontal-bar
+ * enclosure; the 35-px centring offset for the 170 dimension is on the y axis.
+ * SPI is 8 MHz (dupont jumpers ring at 20 MHz -> fuzzy text). The exact MADCTL
+ * flip direction and offset are confirmed at bring-up (see the node below).
  *
  * ---- Pin map (XIAO Plus digital pin -> nRF GPIO; source = Seeed variant.cpp) ----
  *   Existing 8 signals — UNCHANGED from the mono shield:
@@ -133,18 +135,35 @@
     st7789v_color: st7789v@0 {
         compatible = "sitronix,st7789v";
         reg = <0>;
-        spi-max-frequency = <20000000>;
+        /*
+         * 8 MHz (was 20 MHz). The panel is wired with dupont jumpers; 20 MHz on
+         * long unshielded leads rings/couples and shows up as fuzzy/ghosted text
+         * ("糊"). 8 MHz is plenty for these static status pages. Raise once the
+         * panel is on a proper flex/PCB with short traces.
+         */
+        spi-max-frequency = <8000000>;
         cmd-data-gpios = <&gpio1 1 GPIO_ACTIVE_LOW>;   // DC  = D13 (P1.01)
         reset-gpios    = <&gpio1 7 GPIO_ACTIVE_LOW>;    // RST = D17 (P1.07)
-        width = <170>;
-        height = <320>;
-        x-offset = <35>;    // (240 - 170) / 2; ST7789 RAM is 240 wide
-        y-offset = <0>;
+        /*
+         * LANDSCAPE 320x170 (horizontal-bar enclosure). Native panel is portrait
+         * 170x320; we rotate 90 deg by setting the MADCTL MV bit (row/col
+         * exchange). Width/height are swapped vs native, and the 35-px centring
+         * gap for the 170 dimension moves from x (portrait) to y (landscape):
+         *   170 + 35*2 = 240 = ST7789 controller RAM width, so 35 holds under
+         *   either mirror direction.
+         * mdac = 0x60 = MV(0x20) | MX(0x40). If the image comes up upside-down or
+         * mirrored at bring-up, try 0xA0 (MV | MY) instead — both are landscape,
+         * they differ only by 180 deg / flip.
+         */
+        width = <320>;
+        height = <170>;
+        x-offset = <0>;
+        y-offset = <35>;    // (240 - 170) / 2 now on the 170-tall axis
         vcom = <0x19>;
         gctrl = <0x35>;
         vrhs = <0x12>;
         vdvs = <0x20>;
-        mdac = <0x00>;
+        mdac = <0x60>;      // MV | MX = landscape
         gamma = <0x01>;
         colmod = <0x05>;
         lcm = <0x2c>;
