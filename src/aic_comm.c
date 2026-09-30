@@ -308,6 +308,7 @@ void aic_comm_send_input(uint32_t key)
     case AIC_KEY_YES:   k = "YES";   break;
     case AIC_KEY_NO:    k = "NO";    break;
     case AIC_KEY_OPEN:  k = "OPEN";  break;
+    case AIC_KEY_ENC:   k = "ENC";   break;
     default:            return;
     }
 
