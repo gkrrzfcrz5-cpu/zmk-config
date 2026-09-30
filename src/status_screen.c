@@ -13,6 +13,8 @@
  *
  * The six host states map to docs/phase5-interface-contract.md §4.1:
  *   TASK / READY / PERMISSION / WAITING / STOPPED / DONE.
+ * Four more (SESSIONS / LISTENING / PROCESSING / OPENING) are local-triggered
+ * screens (device button / voice) echoed by the host — see §4.5.
  * The mockup wording is Traditional Chinese, but the mono prototype's LVGL fonts
  * are Montserrat (Latin only), so FIXED labels here are short English/symbols;
  * the DYNAMIC fields (task / line / question) are drawn verbatim from the host
@@ -155,6 +157,42 @@ static void aic_draw(const struct aic_screen_model *m)
         aic_header("DONE");
         aic_label_wrap(or_dash(m->task), &lv_font_montserrat_12, 18);
         aic_label(LV_SYMBOL_OK " done", &lv_font_montserrat_10,
+                  LV_ALIGN_BOTTOM_LEFT, 0, 0);
+        return;
+    }
+
+    /* Local-triggered screens (device button / voice, echoed by the host so the
+     * host stays source of truth). See docs/phase5-interface-contract.md §4.5. */
+    if (strcmp(m->state, "SESSIONS") == 0) {
+        /* Task list summary (Open/encoder browse). */
+        aic_header("SESSIONS");
+        aic_label_wrap(or_dash(m->task), &lv_font_montserrat_12, 18);
+        aic_label(LV_SYMBOL_LIST " your tasks", &lv_font_montserrat_10,
+                  LV_ALIGN_BOTTOM_LEFT, 0, 0);
+        return;
+    }
+
+    if (strcmp(m->state, "LISTENING") == 0) {
+        /* Voice capture in progress (Voice button). */
+        aic_header("LISTENING");
+        aic_label(LV_SYMBOL_AUDIO " listening...", &lv_font_montserrat_12,
+                  LV_ALIGN_CENTER, 0, 6);
+        return;
+    }
+
+    if (strcmp(m->state, "PROCESSING") == 0) {
+        /* Voice understood, thinking. */
+        aic_header("PROCESSING");
+        aic_label(LV_SYMBOL_REFRESH " thinking...", &lv_font_montserrat_12,
+                  LV_ALIGN_CENTER, 0, 6);
+        return;
+    }
+
+    if (strcmp(m->state, "OPENING") == 0) {
+        /* Opening the result (Open button). */
+        aic_header("OPENING");
+        aic_label_wrap(or_dash(m->task), &lv_font_montserrat_12, 18);
+        aic_label(LV_SYMBOL_EYE_OPEN " opening...", &lv_font_montserrat_10,
                   LV_ALIGN_BOTTOM_LEFT, 0, 0);
         return;
     }
