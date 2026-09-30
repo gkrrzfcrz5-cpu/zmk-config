@@ -233,10 +233,12 @@ static lv_obj_t *aic_face(lv_coord_t dx, lv_coord_t dy, int expr, bool accent_ma
     lv_obj_t *head = aic_box(s_content, 62, 60, AC_WHITE, 18);
     lv_obj_align(head, LV_ALIGN_CENTER, dx, dy);
 
-    /* Little top nub (sibling so it isn't clipped): a tab poking out of the top,
-     * same white so it merges with the head — the mockup robot's signature. */
+    /* Little top tab (sibling so it isn't clipped): a rounded white pill floating
+     * just ABOVE the head with a small black gap, so it reads as a separate mark —
+     * the mockup robot's signature. (Was +5, which pushed it down into the head so
+     * the white tab merged into the white head and vanished.) */
     lv_obj_t *nub = aic_box(s_content, 16, 9, AC_WHITE, 4);
-    lv_obj_align_to(nub, head, LV_ALIGN_OUT_TOP_MID, 0, 5);
+    lv_obj_align_to(nub, head, LV_ALIGN_OUT_TOP_MID, 0, -4);
 
     if (expr == AIC_FACE_HAPPY) {
         /* Closed smiling eyes (two shallow arcs) + a U smile. */
@@ -415,6 +417,38 @@ static void aic_draw(const struct aic_screen_model *m)
     /* Unknown state (forward-compat): standby-style fallback. */
     aic_topbar(or_dash(m->state));
     aic_body_lr(AIC_FACE_NEUTRAL, false, "AI Companion", AC_WHITE, or_dash(m->state));
+}
+
+/* --- prototype demo auto-cycle -------------------------------------------- */
+/*
+ * With no host connected there is nothing to show but the standby face, so walk
+ * every screen state on a timer — a rolling showcase of the whole UI. Sample
+ * data per frame is representative, not real. The first real host message stops
+ * the cycle (see aic_screen_render), so this never fights live data.
+ */
+static lv_timer_t *s_demo_timer;
+
+static const struct aic_screen_model AIC_DEMO[] = {
+    { .state = "",           .clock = "" },                 /* standby / waiting */
+    { .state = "READY",      .clock = "14:32" },            /* HOME */
+    { .state = "TASK",       .task = "Refactoring auth module", .line = "editing session.py" },
+    { .state = "WAITING",    .task = "Approve deploy to staging?" },
+    { .state = "PERMISSION", .question = "Run database migration?", .task = "migrate 0042_add_index" },
+    { .state = "STOPPED",    .task = "Build failed", .line = "3 tests red" },
+    { .state = "DONE",       .task = "Shipped 12 files", .line = "all tests green" },
+    { .state = "SESSIONS",   .task = "auth refactor" },
+    { .state = "LISTENING" },
+    { .state = "PROCESSING" },
+    { .state = "OPENING",    .task = "report.pdf" },
+};
+#define AIC_DEMO_N ((int)(sizeof(AIC_DEMO) / sizeof(AIC_DEMO[0])))
+
+static void aic_demo_tick(lv_timer_t *t)
+{
+    static int i;
+    s_model = AIC_DEMO[i];
+    aic_draw(&s_model);
+    i = (i + 1) % AIC_DEMO_N;
 }
 
 /* --- boot splash (colour only) --------------------------------------------- */
@@ -657,6 +691,13 @@ static void aic_draw(const struct aic_screen_model *m)
 void aic_screen_render(const struct aic_screen_model *model)
 {
     s_model = *model;
+#if defined(AIC_COLOR_UI)
+    /* A real host message wins: stop the prototype auto-cycle for good. */
+    if (s_demo_timer != NULL && model->state[0] != '\0') {
+        lv_timer_del(s_demo_timer);
+        s_demo_timer = NULL;
+    }
+#endif
     if (s_content != NULL) {
         aic_draw(&s_model);
     }
@@ -694,6 +735,11 @@ lv_obj_t *zmk_display_status_screen(void)
 #if defined(AIC_COLOR_UI)
     /* Lay the black boot animation over the top; it removes itself after ~3.2 s. */
     aic_boot_splash(screen);
+
+    /* Prototype showcase: once nothing else is driving the panel, roll through
+     * every screen state on a timer (first tick after the boot splash clears).
+     * Stopped the moment a real host screen arrives (see aic_screen_render). */
+    s_demo_timer = lv_timer_create(aic_demo_tick, 3500, NULL);
 #endif
 
     return screen;
