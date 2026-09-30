@@ -420,7 +420,7 @@ static void aic_draw(const struct aic_screen_model *m)
 /* --- boot splash (colour only) --------------------------------------------- */
 /*
  * A black-background power-on animation modelled on the optimus_boot reference: a
- * bold white inner ring ("O"), a fine ring of ~48 white radial ticks (lv_meter)
+ * small white inner ring ("O"), a fine ring of 24 white radial ticks (lv_meter)
  * that slowly rotates, and a tagline. It is a full-screen opaque overlay laid OVER
  * the status screen at init; a one-shot LVGL timer removes it after ~3.2 s,
  * revealing whatever state is current by then (standby if the host is still
@@ -434,7 +434,7 @@ static lv_meter_scale_t *s_boot_scale;
 
 static void aic_boot_spin(void *meter, int32_t rotation)
 {
-    /* Re-place the ticks at a new start angle; full 360deg range, 48 ticks. */
+    /* Re-place the ticks at a new start angle; full 360deg range, 24 ticks. */
     lv_meter_set_scale_range((lv_obj_t *)meter, s_boot_scale, 0, 100, 360, rotation);
 }
 
@@ -456,35 +456,41 @@ static void aic_boot_splash(lv_obj_t *screen)
     lv_obj_set_style_bg_opa(ov, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_clear_flag(ov, LV_OBJ_FLAG_SCROLLABLE);
 
-    /* Bold white inner ring — a thick "O" (transparent centre, wide white border). */
+    /* Bold white inner ring — a thin "O" (transparent centre, white border). Kept
+     * small so it reads as a logo mark, not a giant eyeball (was 88px/20px border,
+     * which filled the 170px-wide panel). */
     lv_obj_t *inner = lv_obj_create(ov);
     lv_obj_remove_style_all(inner);
-    lv_obj_set_size(inner, 88, 88);
+    lv_obj_set_size(inner, 46, 46);
     lv_obj_set_style_radius(inner, LV_RADIUS_CIRCLE, LV_PART_MAIN);
     lv_obj_set_style_bg_opa(inner, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_color(inner, AC_WHITE, LV_PART_MAIN);
-    lv_obj_set_style_border_width(inner, 20, LV_PART_MAIN);
+    lv_obj_set_style_border_width(inner, 8, LV_PART_MAIN);
     lv_obj_clear_flag(inner, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_align(inner, LV_ALIGN_CENTER, 0, -14);
+    lv_obj_align(inner, LV_ALIGN_CENTER, 0, -10);
 
-    /* Outer tick ring: 48 thin white radial ticks around the ring, slowly rotating. */
+    /* Outer tick ring: 24 thin white radial ticks, slowly rotating. Halved from 48
+     * ticks and shrunk from 140->96px so each animation frame redraws ~1/4 the work
+     * — the 8 MHz software-SPI redraw of the full meter every frame was what made
+     * the rotation stutter. */
     lv_obj_t *meter = lv_meter_create(ov);
-    lv_obj_set_size(meter, 140, 140);
-    lv_obj_align(meter, LV_ALIGN_CENTER, 0, -14);
+    lv_obj_set_size(meter, 96, 96);
+    lv_obj_align(meter, LV_ALIGN_CENTER, 0, -10);
     lv_obj_set_style_bg_opa(meter, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(meter, 0, LV_PART_MAIN);
     lv_obj_clear_flag(meter, LV_OBJ_FLAG_SCROLLABLE);
     s_boot_scale = lv_meter_add_scale(meter);
-    lv_meter_set_scale_ticks(meter, s_boot_scale, 48, 3, 11, AC_WHITE);
+    lv_meter_set_scale_ticks(meter, s_boot_scale, 24, 2, 8, AC_WHITE);
     lv_meter_set_scale_range(meter, s_boot_scale, 0, 100, 360, 0);
 
-    /* Gentle continuous rotation (6 s / turn); the 3.2 s splash shows part of one. */
+    /* Gentle continuous rotation (9 s / turn — slower so any dropped frame is less
+     * jarring); the 3.2 s splash shows part of one turn. */
     lv_anim_t a;
     lv_anim_init(&a);
     lv_anim_set_var(&a, meter);
     lv_anim_set_exec_cb(&a, aic_boot_spin);
     lv_anim_set_values(&a, 0, 360);
-    lv_anim_set_time(&a, 6000);
+    lv_anim_set_time(&a, 9000);
     lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
     lv_anim_start(&a);
 
