@@ -1,4 +1,66 @@
-# AI Companion — Physical Wiring Diagram (Expansion Board version)
+# AI Companion — Physical Wiring Diagram
+
+There are TWO physical builds. The **COLOUR build** below is the current active
+hardware (bare XIAO nRF52840 **Plus** + Waveshare 1.9" ST7789V2 panel + jumper
+wires). The **MONO build** further down is the older 0.96" OLED on the Seeed
+Expansion Board.
+
+---
+
+# COLOUR build — bare XIAO nRF52840 Plus + Waveshare 1.9" ST7789V2
+
+> Verification level: **HW-VERIFIED** for display (panel lit, 12 screens push)
+> and encoder (rotation scrolls the Mac; push reports `ENC`), 2026-09-30.
+> Buttons Voice/Yes/No/Open and the DRV2605L haptic: input path proven (D0→VOICE
+> over CDC) but the 4 physical keycaps + 3 haptic cues are **not yet HW-VERIFIED**.
+>
+> Pin source: `boards/shields/ai_companion_color/ai_companion_color.overlay`,
+> cross-checked against Seeed's `Adafruit_nRF52_Arduino`
+> `variants/Seeed_XIAO_nRF52840_Plus/variant.cpp` `g_ADigitalPinMap[]`.
+> Pins are the XIAO **Plus** silkscreen labels `Dn`.
+
+| XIAO Plus pin | nRF pin | Function | Bus / mode | Connect to |
+|---------------|---------|----------|------------|-----------|
+| D0  | P0.02 | Voice button | direct GPIO, active-low + internal pull-up | button → GND |
+| D2  | P0.28 | Yes button   | direct GPIO, active-low + internal pull-up | button → GND |
+| D9  | P1.14 | No button    | direct GPIO, active-low + internal pull-up | button → GND |
+| D10 | P1.15 | Open button  | direct GPIO, active-low + internal pull-up | button → GND |
+| **D1** | **P0.03** | **Encoder SW (push) — 5th key** | direct GPIO, active-low + internal pull-up | encoder SW → GND |
+| D7  | P1.12 | Encoder A (SIGA) | EC11 sensor | encoder A |
+| D6  | P1.11 | Encoder B (SIGB) | EC11 sensor | encoder B |
+| **D4** | **P0.04** | **Haptic SDA** | I2C (`xiao_i2c`) | DRV2605L SDA |
+| **D5** | **P0.05** | **Haptic SCL** | I2C (`xiao_i2c`) | DRV2605L SCL |
+| D8  | P1.13 | Screen CLK (SCK) | SPI (`xiao_spi`, 8 MHz) | panel CLK |
+| D11 | P0.15 | Screen DIN (MOSI) | SPI (MOSI moved here off native P1.15=D10) | panel DIN |
+| D12 | P0.19 | Screen CS | SPI chip-select | panel CS |
+| D13 | P1.01 | Screen DC | command/data select | panel DC |
+| D17 | P1.07 | Screen RST | reset | panel RST |
+
+Power rails: encoder VCC → **3V3** (module pulls A/B to VCC, do NOT use 5V);
+DRV2605L VIN → 3V3, OUT+/OUT- → motor (never a GPIO); panel VCC + BL → 3V3
+(backlight always on); all GND → GND; panel MISO not connected (write-only).
+
+**Haptic SDA/SCL — read this:** `SDA → D4 (P0.04)`, `SCL → D5 (P0.05)`. Do not
+swap them or the DRV2605L is silently unresponsive (no buzz). **On the COLOUR
+build the I2C bus has ONLY the DRV2605L on it** — the OLED is gone (replaced by
+the SPI panel) — so the old "OLED works but motor doesn't = swapped SDA/SCL"
+tell no longer applies here; if the motor is dead, meter continuity D4→SDA and
+D5→SCL directly and confirm the DRV2605L answers at I2C 0x5A.
+
+**Avoided / free pins:** D14/D15 (P0.09/P0.10 = NFC — need
+`CONFIG_NFCT_PINS_AS_GPIO=y`), D16 (P0.31 = VBAT sense). Free/spare: D3 (P0.29),
+D18 (P1.05), and now D19 (P1.03) — vacated when the encoder SW moved to D1.
+
+> **Why the encoder SW is on D1, not D19:** D19 (P1.03) is a **back-side pad** in
+> the Plus's D11–D19 group. At 2026-09-30 bring-up the 5th key would not register
+> even when D19 was shorted straight to GND, while a top-header pin (D0) fired
+> instantly. Jumper contact to the tiny back pads is unreliable, so the switch
+> was moved to the free top-header pin **D1 (P0.03)** (commit that moved it also
+> needed the firmware fix adding the `ENC` case in `aic_comm_send_input()`).
+
+---
+
+# MONO build — XIAO on the Seeed Expansion Board (0.96" OLED)
 
 > Mounting decision (user, 2026-09-28): the XIAO **plugs into the Seeed XIAO
 > Expansion Board** so the board's on-board 0.96" OLED can be used. Buttons,
