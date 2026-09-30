@@ -1,0 +1,69 @@
+/*
+ * Copyright (c) 2026 The AI Companion Contributors
+ * SPDX-License-Identifier: MIT
+ *
+ * ai_companion_color keymap — same as the mono `ai_companion` keymap, plus a
+ * 5th key: the rotary encoder's push switch (SW), wired on the colour build.
+ *
+ * Encoder rotation = mouse-wheel scroll (scroll the focused Mac window).
+ * The 5 buttons report their press to the Mac as an `input` message over the
+ * USB CDC-ACM channel (Phase 5): each is bound to `&aic_input <KEY>` and the
+ * host decides what the press means for the screen currently shown.
+ *   Voice -> VOICE,  Yes -> YES,  No -> NO,  Open -> OPEN,  Encoder push -> ENC
+ */
+
+#include <behaviors.dtsi>
+#include <dt-bindings/zmk/keys.h>
+
+/*
+ * Physical button ids passed to &aic_input. KEEP IN SYNC with the AIC_KEY_*
+ * macros in src/aic_input.h. AIC_ENC (4) is the encoder push switch, present
+ * only on this colour build.
+ */
+#define AIC_VOICE 0
+#define AIC_YES   1
+#define AIC_NO    2
+#define AIC_OPEN  3
+#define AIC_ENC   4
+
+#define ZMK_POINTING_DEFAULT_SCRL_VAL 60
+#include <dt-bindings/zmk/pointing.h>
+
+/ {
+    behaviors {
+        // Sensor-rotate behaviour: 1st binding = clockwise, 2nd = counter-clockwise.
+        encoder_scroll: encoder_scroll {
+            compatible = "zmk,behavior-sensor-rotate";
+            #sensor-binding-cells = <0>;
+            bindings = <&msc SCRL_UP>, <&msc SCRL_DOWN>;
+            tap-ms = <50>;
+        };
+
+        // Physical-button behaviour: on press, report which button to the host.
+        // Implemented in src/behavior_input.c (compatible "aic,behavior-input").
+        aic_input: aic_input {
+            compatible = "aic,behavior-input";
+            #binding-cells = <1>;
+        };
+    };
+};
+
+&msc {
+    trigger-period-ms = <10>;
+    time-to-max-speed-ms = <0>;
+    delay-ms = <0>;
+};
+
+/ {
+    keymap {
+        compatible = "zmk,keymap";
+
+        default_layer {
+            display-name = "AICompanion";
+            bindings = <
+                &aic_input AIC_VOICE   &aic_input AIC_YES   &aic_input AIC_NO   &aic_input AIC_OPEN   &aic_input AIC_ENC
+            >;
+            sensor-bindings = <&encoder_scroll>;
+        };
+    };
+};

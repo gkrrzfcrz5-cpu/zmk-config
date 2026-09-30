@@ -1,0 +1,4 @@
+# Copyright (c) 2026 The AI Companion Contributors
+# SPDX-License-Identifier: MIT
+config SHIELD_AI_COMPANION_COLOR
+    def_bool $(shields_list_contains,ai_companion_color)

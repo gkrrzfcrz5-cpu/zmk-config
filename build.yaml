@@ -25,3 +25,9 @@ include:
   - board: seeeduino_xiao_ble
     shield: ai_companion
     artifact-name: seeeduino_xiao_ble-ai_companion
+  # Colour build: XIAO nRF52840 Plus (D0-D19) + Waveshare 1.9" ST7789V2 SPI
+  # panel (170x320) + encoder push switch as a 5th button. Same board id (same
+  # SoC); the Plus's extra pins are reached via raw &gpio/pinctrl in the overlay.
+  - board: seeeduino_xiao_ble
+    shield: ai_companion_color
+    artifact-name: seeeduino_xiao_ble-ai_companion_color

@@ -1,0 +1,189 @@
+/*
+ * Copyright (c) 2026 The AI Companion Contributors
+ * SPDX-License-Identifier: MIT
+ *
+ * ai_companion_color shield — the COLOUR build of the AI Companion device.
+ *
+ * Same firmware LOGIC as the mono `ai_companion` shield (4 buttons + EC11
+ * encoder + DRV2605L haptic + USB CDC-ACM data channel + the custom 12-screen
+ * status UI), but:
+ *   1) the display is a Waveshare 1.9" ST7789V2 IPS panel (170x320, 4-wire SPI)
+ *      instead of the 128x64 I2C SSD1306, and
+ *   2) the rotary encoder's push switch (SW) is now wired as a 5th button.
+ *
+ * BOARD: still `seeeduino_xiao_ble` — but the physical board is the XIAO
+ * nRF52840 *Plus* (20 pins, D0-D19). The SoC is identical, so no new board
+ * definition is needed; the extra pins (D11+) are reached with raw &gpio0 /
+ * &gpio1 references plus a pinctrl override on the SPI bus. The regular XIAO's
+ * 11-pin header (D0-D10) does NOT expose enough pins for panel + 5 buttons +
+ * encoder + haptic, so this shield REQUIRES the Plus.
+ *
+ * VERIFICATION LEVEL: BUILD only. Nothing here has been flashed or wired yet.
+ * The ST7789 init values are borrowed from Zephyr's own generic ST7789V
+ * reference overlay (boards/shields/st7789v_generic); the 170x320 panel adds an
+ * x-offset of 35 = (240-170)/2 because the ST7789 controller RAM is 240 wide.
+ * Both the offset and the SPI clock speed are to be confirmed at bring-up.
+ *
+ * ---- Pin map (XIAO Plus digital pin -> nRF GPIO; source = Seeed variant.cpp) ----
+ *   Existing 8 signals — UNCHANGED from the mono shield:
+ *     D0  Voice button       (P0.02)   direct GPIO, active-low, pull-up
+ *     D2  Yes   button       (P0.28)   direct GPIO, active-low, pull-up
+ *     D9  No    button       (P1.14)   direct GPIO, active-low, pull-up
+ *     D10 Open  button       (P1.15)   direct GPIO, active-low, pull-up
+ *     D7  Encoder A          (P1.12)   EC11
+ *     D6  Encoder B          (P1.11)   EC11
+ *     D4  I2C SDA            (P0.04)   DRV2605L haptic
+ *     D5  I2C SCL            (P0.05)   DRV2605L haptic
+ *   New signals — only on pins the mono build left free:
+ *     D8  Screen CLK (SCK)   (P1.13)   SPI2 — native SCK pin, no override needed
+ *     D11 Screen DIN (MOSI)  (P0.15)   SPI2 — MOSI moved here (native P1.15 = D10 = Open)
+ *     D12 Screen CS          (P0.19)   SPI2 chip-select GPIO
+ *     D13 Screen DC          (P1.01)   command/data select GPIO
+ *     D17 Screen RST         (P1.07)   reset GPIO
+ *     D19 Encoder SW (push)  (P1.03)   direct GPIO, active-low, pull-up (5th button)
+ *   Screen BL -> 3V3 (always on); VCC -> 3V3; GND -> GND; MISO not connected.
+ *   AVOIDED: D14/D15 (P0.09/P0.10 = NFC pins), D16 (P0.31 = VBAT sense).
+ */
+
+#include <dt-bindings/zmk/matrix_transform.h>
+
+/ {
+    chosen {
+        zmk,kscan = &kscan0;
+        zmk,matrix-transform = &default_transform;
+        zephyr,display = &st7789v_color;   // colour panel replaces the OLED
+    };
+
+    default_transform: keymap_transform_0 {
+        compatible = "zmk,matrix-transform";
+        columns = <5>;
+        rows = <1>;
+        //        Voice   Yes     No      Open    EncSW
+        map = < RC(0,0) RC(0,1) RC(0,2) RC(0,3) RC(0,4) >;
+    };
+
+    kscan0: kscan_0 {
+        compatible = "zmk,kscan-gpio-direct";
+        wakeup-source;
+        debounce-press-ms = <5>;
+        debounce-release-ms = <5>;
+        input-gpios
+            = <&xiao_d 0  (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>   // Voice
+            , <&xiao_d 2  (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>   // Yes
+            , <&xiao_d 9  (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>   // No
+            , <&xiao_d 10 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>   // Open
+            , <&gpio1 3   (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>   // Encoder SW = D19 (P1.03)
+            ;
+    };
+
+    encoder: encoder {
+        compatible = "alps,ec11";
+        a-gpios = <&xiao_d 7 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
+        b-gpios = <&xiao_d 6 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
+        steps = <80>;
+        status = "okay";
+    };
+
+    sensors: sensors {
+        compatible = "zmk,keymap-sensors";
+        sensors = <&encoder>;
+        triggers-per-rotation = <20>;
+    };
+};
+
+/*
+ * Colour panel — Waveshare 1.9" ST7789V2 (170x320, 4-wire SPI), on the XIAO's
+ * SPI2 (`xiao_spi`). SPI2's native pins are SCK=P1.13, MOSI=P1.15, MISO=P1.14.
+ * We keep SCK on P1.13 (= D8, free) but MOVE MOSI off P1.15 — that pin is D10,
+ * the Open button — onto P0.15 (= D11). MISO is dropped: the display is
+ * write-only. This override is a per-shield pinctrl state so the board's stock
+ * spi2_default is left intact for anything else.
+ */
+&pinctrl {
+    spi2_default_color: spi2_default_color {
+        group1 {
+            psels = <NRF_PSEL(SPIM_SCK, 1, 13)>,
+                    <NRF_PSEL(SPIM_MOSI, 0, 15)>;
+        };
+    };
+
+    spi2_sleep_color: spi2_sleep_color {
+        group1 {
+            psels = <NRF_PSEL(SPIM_SCK, 1, 13)>,
+                    <NRF_PSEL(SPIM_MOSI, 0, 15)>;
+            low-power-enable;
+        };
+    };
+};
+
+&xiao_spi {
+    status = "okay";
+    pinctrl-0 = <&spi2_default_color>;
+    pinctrl-1 = <&spi2_sleep_color>;
+    pinctrl-names = "default", "sleep";
+    cs-gpios = <&gpio0 19 GPIO_ACTIVE_LOW>;   // CS = D12 (P0.19)
+
+    /*
+     * ST7789V node. Register/gamma/power values are copied from Zephyr's own
+     * generic reference (boards/shields/st7789v_generic/
+     * st7789v_waveshare_240x240.overlay) — they are ST7789-controller settings,
+     * not size-specific — with only width/height/x-offset changed for the
+     * 170x320 panel. colmod 0x05 = RGB565 (matches CONFIG_LV_COLOR_DEPTH_16).
+     */
+    st7789v_color: st7789v@0 {
+        compatible = "sitronix,st7789v";
+        reg = <0>;
+        spi-max-frequency = <20000000>;
+        cmd-data-gpios = <&gpio1 1 GPIO_ACTIVE_LOW>;   // DC  = D13 (P1.01)
+        reset-gpios    = <&gpio1 7 GPIO_ACTIVE_LOW>;    // RST = D17 (P1.07)
+        width = <170>;
+        height = <320>;
+        x-offset = <35>;    // (240 - 170) / 2; ST7789 RAM is 240 wide
+        y-offset = <0>;
+        vcom = <0x19>;
+        gctrl = <0x35>;
+        vrhs = <0x12>;
+        vdvs = <0x20>;
+        mdac = <0x00>;
+        gamma = <0x01>;
+        colmod = <0x05>;
+        lcm = <0x2c>;
+        porch-param = [0c 0c 00 33 33];
+        cmd2en-param = [5a 69 02 01];
+        pwctrl1-param = [a4 a1];
+        pvgam-param = [D0 04 0D 11 13 2B 3F 54 4C 18 0D 0B 1F 23];
+        nvgam-param = [D0 04 0C 11 13 2C 3F 44 51 2F 1F 1F 20 23];
+        ram-param = [00 F0];
+        rgb-param = [CD 08 14];
+    };
+};
+
+/*
+ * Haptic + I2C — identical to the mono shield. The DRV2605L stays on the XIAO
+ * I2C bus (D4=SDA / D5=SCL). No SSD1306 node here: the colour panel replaces it.
+ */
+&xiao_i2c {
+    status = "okay";
+
+    haptic: drv2605@5a {
+        compatible = "aic,behavior-haptic";
+        reg = <0x5a>;
+        #binding-cells = <0>;
+    };
+};
+
+/*
+ * USB CDC-ACM data channel — identical to the mono shield (host <-> device
+ * newline-delimited JSON over a virtual serial port alongside USB HID).
+ */
+&zephyr_udc0 {
+    aic_comm_uart: aic_comm_uart {
+        compatible = "zephyr,cdc-acm-uart";
+    };
+};
+
+/ {
+    chosen {
+        aic,comm-uart = &aic_comm_uart;
+    };
+};

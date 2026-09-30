@@ -20,6 +20,10 @@
 #define AIC_KEY_YES   1
 #define AIC_KEY_NO    2
 #define AIC_KEY_OPEN  3
+/* AIC_KEY_ENC = the rotary encoder's push switch, wired only on the colour
+ * build (ai_companion_color). The mono shield's encoder has no push switch, so
+ * this id is unused there — harmless to define for both. */
+#define AIC_KEY_ENC   4
 
 /*
  * Report a physical button press to the host: sends an `input` message naming
