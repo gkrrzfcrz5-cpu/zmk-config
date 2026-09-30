@@ -193,15 +193,44 @@ static void aic_arc(lv_obj_t *par, lv_coord_t d, lv_coord_t width,
     lv_obj_align(a, LV_ALIGN_CENTER, x, y);
 }
 
+/* A short straight stroke (polyline). `pts` MUST have static storage — lv_line
+ * keeps the pointer, it does not copy. Returns the line so the caller can align
+ * it. Used for the mascot's worried eyebrows, celebrate sparks, and alert burst
+ * (angled marks that a rectangle can't make without rotation). */
+static lv_obj_t *aic_line(lv_obj_t *par, const lv_point_t *pts, uint16_t n,
+                          lv_color_t col, lv_coord_t width)
+{
+    lv_obj_t *l = lv_line_create(par ? par : s_content);
+    lv_line_set_points(l, pts, n);
+    lv_obj_set_style_line_color(l, col, LV_PART_MAIN);
+    lv_obj_set_style_line_width(l, width, LV_PART_MAIN);
+    lv_obj_set_style_line_rounded(l, true, LV_PART_MAIN);
+    lv_obj_clear_flag(l, LV_OBJ_FLAG_SCROLLABLE);
+    return l;
+}
+
+/* Static stroke geometry for the mascot accents (lv_line keeps the pointer). */
+static const lv_point_t BROW_L[]  = {{0, 4}, {10, 0}};   /* \_ worried: inner (right) end higher */
+static const lv_point_t BROW_R[]  = {{0, 0}, {10, 4}};   /* _/ worried: inner (left) end higher */
+static const lv_point_t SPARK_L[] = {{8, 0}, {0, 9}};    /* top-right -> bottom-left  "\" */
+static const lv_point_t SPARK_R[] = {{0, 0}, {8, 9}};    /* top-left  -> bottom-right "/" */
+static const lv_point_t RAY_C[]   = {{2, 0}, {2, 11}};   /* burst: vertical centre ray */
+static const lv_point_t RAY_L1[]  = {{5, 1}, {0, 11}};
+static const lv_point_t RAY_R1[]  = {{0, 1}, {5, 11}};
+static const lv_point_t RAY_L2[]  = {{8, 3}, {0, 12}};
+static const lv_point_t RAY_R2[]  = {{0, 3}, {8, 12}};
+
 /* Robot mascot, centred at (dx,dy) offset from the panel centre. A rounded white
- * head with a little top nub, capsule eyes, and an arc mouth whose curve encodes
- * the mood: smile (happy), flat bar (neutral), frown (worried/sad). Happy also
- * closes the eyes into two upward arcs. `accent_marks` adds two orange antenna
- * ticks above the head (alert / celebrate). Returns the head (for badge anchor).*/
+ * head with a little top nub and two small symmetric eyes. Mood is drawn to match
+ * the 12-screen mockup: neutral = a short dash mouth; happy = closed smiling arc
+ * eyes + a U smile; worried/sad = a frown + two angled "pleading" eyebrows.
+ * `accent_marks` adds orange marks above the head: two angled corner sparks when
+ * happy (celebrate), or a five-ray radiating burst otherwise (alert). Returns the
+ * head (for badge anchor). */
 enum { AIC_FACE_NEUTRAL, AIC_FACE_HAPPY, AIC_FACE_WORRIED, AIC_FACE_SAD };
 static lv_obj_t *aic_face(lv_coord_t dx, lv_coord_t dy, int expr, bool accent_marks)
 {
-    lv_obj_t *head = aic_box(s_content, 66, 60, AC_WHITE, 20);
+    lv_obj_t *head = aic_box(s_content, 62, 60, AC_WHITE, 18);
     lv_obj_align(head, LV_ALIGN_CENTER, dx, dy);
 
     /* Little top nub (sibling so it isn't clipped): a tab poking out of the top,
@@ -210,34 +239,51 @@ static lv_obj_t *aic_face(lv_coord_t dx, lv_coord_t dy, int expr, bool accent_ma
     lv_obj_align_to(nub, head, LV_ALIGN_OUT_TOP_MID, 0, 5);
 
     if (expr == AIC_FACE_HAPPY) {
-        /* Closed, happy eyes: two small upward arcs (^ ^). */
-        aic_arc(head, 15, 4, 205, 335, AC_EYE, -15, -2);
-        aic_arc(head, 15, 4, 205, 335, AC_EYE,  15, -2);
-        /* Big smile (U through the bottom). */
-        aic_arc(head, 30, 5, 25, 155, AC_EYE, 0, 4);
+        /* Closed smiling eyes (two shallow arcs) + a U smile. */
+        aic_arc(head, 16, 4, 205, 335, AC_EYE, -13, -3);
+        aic_arc(head, 16, 4, 205, 335, AC_EYE,  13, -3);
+        aic_arc(head, 26, 5, 25, 155, AC_EYE, 0, 6);
     } else {
-        /* Capsule eyes; sad ones a touch smaller/higher = subdued. */
-        lv_coord_t ew = (expr == AIC_FACE_SAD) ? 10 : 12;
-        lv_coord_t eh = (expr == AIC_FACE_SAD) ? 14 : 18;
-        lv_coord_t ey = (expr == AIC_FACE_SAD) ? -3 : -6;
-        lv_obj_t *le = aic_box(head, ew, eh, AC_EYE, ew / 2);
-        lv_obj_align(le, LV_ALIGN_CENTER, -15, ey);
-        lv_obj_t *re = aic_box(head, ew, eh, AC_EYE, ew / 2);
-        lv_obj_align(re, LV_ALIGN_CENTER, 15, ey);
+        /* Small symmetric eyes (short rounded bars) — same on every non-happy face. */
+        lv_obj_t *le = aic_box(head, 10, 13, AC_EYE, 5);
+        lv_obj_align(le, LV_ALIGN_CENTER, -13, -4);
+        lv_obj_t *re = aic_box(head, 10, 13, AC_EYE, 5);
+        lv_obj_align(re, LV_ALIGN_CENTER, 13, -4);
 
         if (expr == AIC_FACE_NEUTRAL) {
-            lv_obj_t *m = aic_box(head, 18, 5, AC_EYE, 2);   /* calm flat mouth */
-            lv_obj_align(m, LV_ALIGN_CENTER, 0, 16);
+            lv_obj_t *m = aic_box(head, 10, 4, AC_EYE, 2);   /* short dash mouth (mockup) */
+            lv_obj_align(m, LV_ALIGN_CENTER, 0, 15);
         } else {
-            aic_arc(head, 28, 5, 205, 335, AC_EYE, 0, 22);   /* frown (∩) */
+            /* Worried/sad: a frown + two angled "pleading" eyebrows over the eyes. */
+            aic_arc(head, 24, 5, 205, 335, AC_EYE, 0, 20);
+            lv_obj_t *bl = aic_line(head, BROW_L, 2, AC_EYE, 3);
+            lv_obj_align(bl, LV_ALIGN_CENTER, -13, -17);
+            lv_obj_t *br = aic_line(head, BROW_R, 2, AC_EYE, 3);
+            lv_obj_align(br, LV_ALIGN_CENTER, 13, -17);
         }
     }
 
     if (accent_marks) {
-        lv_obj_t *m1 = aic_box(s_content, 4, 13, AC_ACCENT, 2);
-        lv_obj_align_to(m1, head, LV_ALIGN_OUT_TOP_MID, -15, -3);
-        lv_obj_t *m2 = aic_box(s_content, 4, 13, AC_ACCENT, 2);
-        lv_obj_align_to(m2, head, LV_ALIGN_OUT_TOP_MID, 15, -3);
+        if (expr == AIC_FACE_HAPPY) {
+            /* Two angled orange sparks at the top corners (celebrate). */
+            lv_obj_t *sl = aic_line(s_content, SPARK_L, 2, AC_ACCENT, 3);
+            lv_obj_align_to(sl, head, LV_ALIGN_OUT_TOP_LEFT, 8, 3);
+            lv_obj_t *sr = aic_line(s_content, SPARK_R, 2, AC_ACCENT, 3);
+            lv_obj_align_to(sr, head, LV_ALIGN_OUT_TOP_RIGHT, -16, 3);
+        } else {
+            /* Orange radiating burst above the head (alert): five short rays. */
+            lv_obj_t *r;
+            r = aic_line(s_content, RAY_L2, 2, AC_ACCENT, 3);
+            lv_obj_align_to(r, head, LV_ALIGN_OUT_TOP_MID, -17, -1);
+            r = aic_line(s_content, RAY_L1, 2, AC_ACCENT, 3);
+            lv_obj_align_to(r, head, LV_ALIGN_OUT_TOP_MID, -8, -3);
+            r = aic_line(s_content, RAY_C, 2, AC_ACCENT, 3);
+            lv_obj_align_to(r, head, LV_ALIGN_OUT_TOP_MID, 0, -4);
+            r = aic_line(s_content, RAY_R1, 2, AC_ACCENT, 3);
+            lv_obj_align_to(r, head, LV_ALIGN_OUT_TOP_MID, 8, -3);
+            r = aic_line(s_content, RAY_R2, 2, AC_ACCENT, 3);
+            lv_obj_align_to(r, head, LV_ALIGN_OUT_TOP_MID, 17, -1);
+        }
     }
     return head;
 }
@@ -373,19 +419,30 @@ static void aic_draw(const struct aic_screen_model *m)
 
 /* --- boot splash (colour only) --------------------------------------------- */
 /*
- * A black-background power-on animation modelled on optimus_boot_preview.html: a
- * static thick white inner ring, a rotating white outer ring, and a tagline. It
- * is a full-screen opaque overlay laid OVER the status screen at init; a one-shot
- * LVGL timer removes it after ~3.2 s, revealing whatever state is current by then
- * (standby if the host is still silent). The outer ring is an lv_spinner (an
- * arc that LVGL rotates on its own animation timer) rather than a rotated 52-tooth
- * bitmap — a spinning arc stays smooth under software rendering at 8 MHz SPI.
+ * A black-background power-on animation modelled on the optimus_boot reference: a
+ * bold white inner ring ("O"), a fine ring of ~48 white radial ticks (lv_meter)
+ * that slowly rotates, and a tagline. It is a full-screen opaque overlay laid OVER
+ * the status screen at init; a one-shot LVGL timer removes it after ~3.2 s,
+ * revealing whatever state is current by then (standby if the host is still
+ * silent). The tick ring is an lv_meter scale whose rotation is animated — a
+ * uniform tick ring reads as a gentle shimmer (matching the reference), and only
+ * the meter's bounding box invalidates, so it stays affordable at 8 MHz SPI.
  */
+
+/* Kept for the rotation animation callback (single boot overlay at a time). */
+static lv_meter_scale_t *s_boot_scale;
+
+static void aic_boot_spin(void *meter, int32_t rotation)
+{
+    /* Re-place the ticks at a new start angle; full 360deg range, 48 ticks. */
+    lv_meter_set_scale_range((lv_obj_t *)meter, s_boot_scale, 0, 100, 360, rotation);
+}
+
 static void aic_boot_done(lv_timer_t *t)
 {
     lv_obj_t *ov = (lv_obj_t *)t->user_data;
     if (ov != NULL) {
-        lv_obj_del(ov);   /* deletes the spinner + its animation with it */
+        lv_obj_del(ov);   /* deletes the meter + its rotation animation with it */
     }
     /* repeat_count was 1, so LVGL deletes this timer itself after we return. */
 }
@@ -399,26 +456,37 @@ static void aic_boot_splash(lv_obj_t *screen)
     lv_obj_set_style_bg_opa(ov, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_clear_flag(ov, LV_OBJ_FLAG_SCROLLABLE);
 
-    /* Inner static thick ring (a circle outline). */
+    /* Bold white inner ring — a thick "O" (transparent centre, wide white border). */
     lv_obj_t *inner = lv_obj_create(ov);
     lv_obj_remove_style_all(inner);
-    lv_obj_set_size(inner, 56, 56);
+    lv_obj_set_size(inner, 88, 88);
     lv_obj_set_style_radius(inner, LV_RADIUS_CIRCLE, LV_PART_MAIN);
     lv_obj_set_style_bg_opa(inner, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_color(inner, AC_WHITE, LV_PART_MAIN);
-    lv_obj_set_style_border_width(inner, 9, LV_PART_MAIN);
+    lv_obj_set_style_border_width(inner, 20, LV_PART_MAIN);
     lv_obj_clear_flag(inner, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_align(inner, LV_ALIGN_CENTER, 0, -18);
+    lv_obj_align(inner, LV_ALIGN_CENTER, 0, -14);
 
-    /* Outer rotating ring: dim full track (MAIN) + bright sweeping arc (INDICATOR),
-     * one turn every 1.4 s. */
-    lv_obj_t *sp = lv_spinner_create(ov, 1400, 90);
-    lv_obj_set_size(sp, 104, 104);
-    lv_obj_align(sp, LV_ALIGN_CENTER, 0, -18);
-    lv_obj_set_style_arc_color(sp, lv_color_hex(0x2A2E36), LV_PART_MAIN);
-    lv_obj_set_style_arc_width(sp, 8, LV_PART_MAIN);
-    lv_obj_set_style_arc_color(sp, AC_WHITE, LV_PART_INDICATOR);
-    lv_obj_set_style_arc_width(sp, 8, LV_PART_INDICATOR);
+    /* Outer tick ring: 48 thin white radial ticks around the ring, slowly rotating. */
+    lv_obj_t *meter = lv_meter_create(ov);
+    lv_obj_set_size(meter, 140, 140);
+    lv_obj_align(meter, LV_ALIGN_CENTER, 0, -14);
+    lv_obj_set_style_bg_opa(meter, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(meter, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(meter, LV_OBJ_FLAG_SCROLLABLE);
+    s_boot_scale = lv_meter_add_scale(meter);
+    lv_meter_set_scale_ticks(meter, s_boot_scale, 48, 3, 11, AC_WHITE);
+    lv_meter_set_scale_range(meter, s_boot_scale, 0, 100, 360, 0);
+
+    /* Gentle continuous rotation (6 s / turn); the 3.2 s splash shows part of one. */
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, meter);
+    lv_anim_set_exec_cb(&a, aic_boot_spin);
+    lv_anim_set_values(&a, 0, 360);
+    lv_anim_set_time(&a, 6000);
+    lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_start(&a);
 
     /* Tagline (Latin-only Montserrat, matches the reference wording). */
     lv_obj_t *tag = lv_label_create(ov);
