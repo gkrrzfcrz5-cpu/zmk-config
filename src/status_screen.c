@@ -32,6 +32,7 @@
  */
 
 #include <zephyr/kernel.h>
+#include <stdio.h>
 #include <string.h>
 #include <lvgl.h>
 
@@ -212,82 +213,97 @@ static lv_obj_t *aic_line(lv_obj_t *par, const lv_point_t *pts, uint16_t n,
 /* Static stroke geometry for the mascot accents (lv_line keeps the pointer). */
 static const lv_point_t BROW_L[]  = {{0, 4}, {10, 0}};   /* \_ worried: inner (right) end higher */
 static const lv_point_t BROW_R[]  = {{0, 0}, {10, 4}};   /* _/ worried: inner (left) end higher */
-static const lv_point_t SPARK_L[] = {{8, 0}, {0, 9}};    /* top-right -> bottom-left  "\" */
-static const lv_point_t SPARK_R[] = {{0, 0}, {8, 9}};    /* top-left  -> bottom-right "/" */
-static const lv_point_t RAY_C[]   = {{2, 0}, {2, 11}};   /* burst: vertical centre ray */
-static const lv_point_t RAY_L1[]  = {{5, 1}, {0, 11}};
-static const lv_point_t RAY_R1[]  = {{0, 1}, {5, 11}};
-static const lv_point_t RAY_L2[]  = {{8, 3}, {0, 12}};
-static const lv_point_t RAY_R2[]  = {{0, 3}, {8, 12}};
+static const lv_point_t SPARK_L[] = {{9, 10}, {0, 0}};   /* celebrate: short stroke splaying up-left  */
+static const lv_point_t SPARK_R[] = {{0, 10}, {9, 0}};   /* celebrate: short stroke splaying up-right */
 
-/* Robot mascot, centred at (dx,dy) offset from the panel centre. A rounded white
- * head with a little top nub and two small symmetric eyes. Mood is drawn to match
- * the 12-screen mockup: neutral = a short dash mouth; happy = closed smiling arc
- * eyes + a U smile; worried/sad = a frown + two angled "pleading" eyebrows.
- * `accent_marks` adds orange marks above the head: two angled corner sparks when
- * happy (celebrate), or a five-ray radiating burst otherwise (alert). Returns the
- * head (for badge anchor). */
-enum { AIC_FACE_NEUTRAL, AIC_FACE_HAPPY, AIC_FACE_WORRIED, AIC_FACE_SAD };
-static lv_obj_t *aic_face(lv_coord_t dx, lv_coord_t dy, int expr, bool accent_marks)
+/* Big alert "explosion": rays radiating out from a point above the head. Drawn in
+ * a 64x44 container's own coordinates from a common centre near (32,30), so the
+ * whole starburst places with one align. lv_line keeps the pointer -> static. */
+static const lv_point_t BURST_U[]  = {{32, 24}, {32, 2}};    /* straight up            */
+static const lv_point_t BURST_UL[] = {{27, 24}, {10, 8}};    /* up and to the left     */
+static const lv_point_t BURST_UR[] = {{37, 24}, {54, 8}};    /* up and to the right    */
+static const lv_point_t BURST_L[]  = {{26, 28}, {4, 22}};    /* out to the left        */
+static const lv_point_t BURST_R[]  = {{38, 28}, {60, 22}};   /* out to the right       */
+
+/* Big orange "explosion" starburst, floated above `head`: five splayed rays in a
+ * 64x44 transparent container (a child of s_content, so lv_obj_clean removes it).
+ * Emphasised over the old tiny in-face rays so NEED YOU reads as "help!" at a
+ * glance even with a smaller mascot. */
+static void aic_burst(lv_obj_t *head)
 {
-    lv_obj_t *head = aic_box(s_content, 62, 60, AC_WHITE, 18);
+    lv_obj_t *box = lv_obj_create(s_content);
+    lv_obj_remove_style_all(box);
+    lv_obj_set_size(box, 64, 44);
+    lv_obj_clear_flag(box, LV_OBJ_FLAG_SCROLLABLE);
+    aic_line(box, BURST_U,  2, AC_ACCENT, 4);
+    aic_line(box, BURST_UL, 2, AC_ACCENT, 4);
+    aic_line(box, BURST_UR, 2, AC_ACCENT, 4);
+    aic_line(box, BURST_L,  2, AC_ACCENT, 4);
+    aic_line(box, BURST_R,  2, AC_ACCENT, 4);
+    lv_obj_align_to(box, head, LV_ALIGN_OUT_TOP_MID, 0, 6);
+}
+
+/* Robot mascot, centred at (dx,dy) offset from the panel centre, sized to `scale`
+ * percent (100 = full). A rounded white head with a little top nub and two small
+ * symmetric eyes. Mood is drawn to match the 12-screen mockup: neutral = a short
+ * dash mouth; happy = closed smiling arc eyes + a U smile; worried/sad = a frown +
+ * two angled "pleading" eyebrows. `accent_marks` adds orange marks above the head:
+ * two angled corner sparks when happy (celebrate), or the big alert burst otherwise.
+ * Returns the head (for badge/burst anchor). */
+enum { AIC_FACE_NEUTRAL, AIC_FACE_HAPPY, AIC_FACE_WORRIED, AIC_FACE_SAD };
+static lv_obj_t *aic_face(lv_coord_t dx, lv_coord_t dy, int expr, bool accent_marks,
+                          int scale)
+{
+#define SP(v) ((lv_coord_t)((v) * scale / 100))
+    lv_obj_t *head = aic_box(s_content, SP(62), SP(60), AC_WHITE, SP(18));
     lv_obj_align(head, LV_ALIGN_CENTER, dx, dy);
 
     /* Little top tab (sibling so it isn't clipped): a rounded white pill floating
      * just ABOVE the head with a small black gap, so it reads as a separate mark —
      * the mockup robot's signature. (Was +5, which pushed it down into the head so
      * the white tab merged into the white head and vanished.) */
-    lv_obj_t *nub = aic_box(s_content, 16, 9, AC_WHITE, 4);
+    lv_obj_t *nub = aic_box(s_content, SP(16), SP(9), AC_WHITE, 4);
     lv_obj_align_to(nub, head, LV_ALIGN_OUT_TOP_MID, 0, -4);
 
     if (expr == AIC_FACE_HAPPY) {
         /* Closed smiling eyes (two shallow arcs) + a U smile. */
-        aic_arc(head, 16, 4, 205, 335, AC_EYE, -13, -3);
-        aic_arc(head, 16, 4, 205, 335, AC_EYE,  13, -3);
-        aic_arc(head, 26, 5, 25, 155, AC_EYE, 0, 6);
+        aic_arc(head, SP(16), 4, 205, 335, AC_EYE, SP(-13), SP(-3));
+        aic_arc(head, SP(16), 4, 205, 335, AC_EYE, SP(13),  SP(-3));
+        aic_arc(head, SP(26), 5, 25, 155, AC_EYE, 0, SP(6));
     } else {
         /* Small symmetric eyes (short rounded bars) — same on every non-happy face. */
-        lv_obj_t *le = aic_box(head, 10, 13, AC_EYE, 5);
-        lv_obj_align(le, LV_ALIGN_CENTER, -13, -4);
-        lv_obj_t *re = aic_box(head, 10, 13, AC_EYE, 5);
-        lv_obj_align(re, LV_ALIGN_CENTER, 13, -4);
+        lv_obj_t *le = aic_box(head, SP(10), SP(13), AC_EYE, 5);
+        lv_obj_align(le, LV_ALIGN_CENTER, SP(-13), SP(-4));
+        lv_obj_t *re = aic_box(head, SP(10), SP(13), AC_EYE, 5);
+        lv_obj_align(re, LV_ALIGN_CENTER, SP(13), SP(-4));
 
         if (expr == AIC_FACE_NEUTRAL) {
-            lv_obj_t *m = aic_box(head, 10, 4, AC_EYE, 2);   /* short dash mouth (mockup) */
-            lv_obj_align(m, LV_ALIGN_CENTER, 0, 15);
+            lv_obj_t *m = aic_box(head, SP(10), SP(4), AC_EYE, 2);  /* short dash mouth */
+            lv_obj_align(m, LV_ALIGN_CENTER, 0, SP(15));
         } else {
             /* Worried/sad: a frown + two angled "pleading" eyebrows over the eyes. */
-            aic_arc(head, 24, 5, 205, 335, AC_EYE, 0, 20);
+            aic_arc(head, SP(24), 5, 205, 335, AC_EYE, 0, SP(20));
             lv_obj_t *bl = aic_line(head, BROW_L, 2, AC_EYE, 3);
-            lv_obj_align(bl, LV_ALIGN_CENTER, -13, -17);
+            lv_obj_align(bl, LV_ALIGN_CENTER, SP(-13), SP(-17));
             lv_obj_t *br = aic_line(head, BROW_R, 2, AC_EYE, 3);
-            lv_obj_align(br, LV_ALIGN_CENTER, 13, -17);
+            lv_obj_align(br, LV_ALIGN_CENTER, SP(13), SP(-17));
         }
     }
 
     if (accent_marks) {
         if (expr == AIC_FACE_HAPPY) {
-            /* Two angled orange sparks at the top corners (celebrate). */
+            /* Two angled orange sparks splaying up-and-out from the top corners
+             * (celebrate confetti, not horns). */
             lv_obj_t *sl = aic_line(s_content, SPARK_L, 2, AC_ACCENT, 3);
-            lv_obj_align_to(sl, head, LV_ALIGN_OUT_TOP_LEFT, 8, 3);
+            lv_obj_align_to(sl, head, LV_ALIGN_OUT_TOP_LEFT, 2, 2);
             lv_obj_t *sr = aic_line(s_content, SPARK_R, 2, AC_ACCENT, 3);
-            lv_obj_align_to(sr, head, LV_ALIGN_OUT_TOP_RIGHT, -16, 3);
+            lv_obj_align_to(sr, head, LV_ALIGN_OUT_TOP_RIGHT, -11, 2);
         } else {
-            /* Orange radiating burst above the head (alert): five short rays. */
-            lv_obj_t *r;
-            r = aic_line(s_content, RAY_L2, 2, AC_ACCENT, 3);
-            lv_obj_align_to(r, head, LV_ALIGN_OUT_TOP_MID, -17, -1);
-            r = aic_line(s_content, RAY_L1, 2, AC_ACCENT, 3);
-            lv_obj_align_to(r, head, LV_ALIGN_OUT_TOP_MID, -8, -3);
-            r = aic_line(s_content, RAY_C, 2, AC_ACCENT, 3);
-            lv_obj_align_to(r, head, LV_ALIGN_OUT_TOP_MID, 0, -4);
-            r = aic_line(s_content, RAY_R1, 2, AC_ACCENT, 3);
-            lv_obj_align_to(r, head, LV_ALIGN_OUT_TOP_MID, 8, -3);
-            r = aic_line(s_content, RAY_R2, 2, AC_ACCENT, 3);
-            lv_obj_align_to(r, head, LV_ALIGN_OUT_TOP_MID, 17, -1);
+            aic_burst(head);
         }
     }
     return head;
+#undef SP
 }
 
 /* Left = mascot, right = a headline + a sub-line. The shared body layout used by
@@ -295,7 +311,7 @@ static lv_obj_t *aic_face(lv_coord_t dx, lv_coord_t dy, int expr, bool accent_ma
 static void aic_body_lr(int expr, bool marks, const char *headline,
                         lv_color_t head_col, const char *sub)
 {
-    aic_face(-96, 4, expr, marks);
+    aic_face(-96, 4, expr, marks, 100);
     aic_text(headline, AIC_F_BIG, head_col, LV_ALIGN_TOP_LEFT, 116, 42, 196, true);
     aic_text(sub, AIC_F_SMALL, AC_GREY, LV_ALIGN_TOP_LEFT, 116, 100, 196, true);
 }
@@ -306,7 +322,7 @@ static void aic_draw(const struct aic_screen_model *m)
 
     /* Standby (pre-connect / disconnected). */
     if (m->state[0] == '\0') {
-        aic_face(-96, 4, AIC_FACE_NEUTRAL, false);
+        aic_face(-96, 4, AIC_FACE_NEUTRAL, false, 100);
         aic_text("AI Companion", AIC_F_BIG, AC_WHITE, LV_ALIGN_TOP_LEFT, 116, 44, 196, true);
         aic_text("waiting for host", AIC_F_SMALL, AC_GREY, LV_ALIGN_TOP_LEFT, 116, 100, 196, true);
         return;
@@ -314,22 +330,47 @@ static void aic_draw(const struct aic_screen_model *m)
 
     if (strcmp(m->state, "READY") == 0) {                 /* HOME */
         aic_topbar("HOME");
-        aic_face(-96, 4, AIC_FACE_NEUTRAL, false);
-        aic_text(or_dash(m->clock), AIC_F_HUGE, AC_WHITE, LV_ALIGN_CENTER, 48, -4, 0, false);
-        aic_footer("READY WHEN YOU ARE", or_dash(m->clock));
+        aic_face(-96, 4, AIC_FACE_NEUTRAL, false, 100);
+
+        /* Big clock with the HOUR digits in orange (accent), minutes in white.
+         * LVGL recolor markup: "#RRGGBB text#" — the space after the hex is the
+         * separator (not printed). Split "HH:MM" on the colon; if there's no
+         * colon (e.g. the "—" placeholder) just show it plain white. */
+        lv_obj_t *clk = lv_label_create(s_content);
+        lv_label_set_recolor(clk, true);
+        const char *cl = or_dash(m->clock);
+        const char *colon = strchr(cl, ':');
+        if (colon != NULL) {
+            char buf[24];
+            snprintf(buf, sizeof(buf), "#F5551E %.*s#%s", (int)(colon - cl), cl, colon);
+            lv_label_set_text(clk, buf);
+        } else {
+            lv_label_set_text(clk, cl);
+        }
+        lv_obj_set_style_text_font(clk, AIC_F_HUGE, LV_PART_MAIN);
+        lv_obj_set_style_text_color(clk, AC_WHITE, LV_PART_MAIN);
+        lv_obj_align(clk, LV_ALIGN_CENTER, 48, -4);
+
+        aic_footer("READY WHEN YOU ARE", NULL);
         return;
     }
 
     if (strcmp(m->state, "TASK") == 0) {                  /* WORKING */
         aic_topbar("WORKING");
         aic_body_lr(AIC_FACE_NEUTRAL, false, or_dash(m->task), AC_WHITE, or_dash(m->line));
-        aic_footer("WORKING", "STAYING ON IT");
+        aic_footer("IN PROGRESS", "STAYING ON IT");
         return;
     }
 
     if (strcmp(m->state, "WAITING") == 0) {               /* NEED YOU */
         aic_topbar("NEED YOU");
-        aic_body_lr(AIC_FACE_WORRIED, true, "I NEED YOUR HELP", AC_WHITE, or_dash(m->task));
+        /* Smaller worried mascot + a big separate orange explosion above it, so the
+         * "help!" burst is the focal point (user: keep/emphasise the explosion,
+         * shrink the face). Custom layout instead of aic_body_lr. */
+        lv_obj_t *head = aic_face(-96, 12, AIC_FACE_WORRIED, false, 72);
+        aic_burst(head);
+        aic_text("I NEED YOUR HELP", AIC_F_BIG, AC_WHITE, LV_ALIGN_TOP_LEFT, 116, 42, 196, true);
+        aic_text(or_dash(m->task), AIC_F_SMALL, AC_GREY, LV_ALIGN_TOP_LEFT, 116, 100, 196, true);
         return;
     }
 
@@ -337,14 +378,25 @@ static void aic_draw(const struct aic_screen_model *m)
         aic_topbar("PERMISSION");
         aic_text(or_dash(m->question), AIC_F_BIG, AC_WHITE, LV_ALIGN_TOP_LEFT, 12, 34, 296, true);
         aic_text(or_dash(m->task), AIC_F_SMALL, AC_GREY, LV_ALIGN_TOP_LEFT, 12, 90, 296, true);
-        aic_btn(LV_SYMBOL_CLOSE " Deny", AC_ROW, true);
+        aic_btn(LV_SYMBOL_CLOSE " Deny", lv_color_hex(0x3A3F47), true);
         aic_btn(LV_SYMBOL_OK " Allow", AC_ACCENT, false);
         return;
     }
 
     if (strcmp(m->state, "STOPPED") == 0) {               /* ATTENTION */
         aic_topbar("ATTENTION");
-        lv_obj_t *head = aic_face(-96, 4, AIC_FACE_SAD, false);
+        /* Full-screen red border frame so "something's wrong" reads at a glance.
+         * A child of s_content (transparent fill, ~3px red edge) so the next
+         * lv_obj_clean() removes it with the rest of the screen. */
+        lv_obj_t *frame = lv_obj_create(s_content);
+        lv_obj_remove_style_all(frame);
+        lv_obj_set_size(frame, LV_PCT(100), LV_PCT(100));
+        lv_obj_set_style_border_color(frame, lv_color_hex(0xE5342A), LV_PART_MAIN);
+        lv_obj_set_style_border_width(frame, 3, LV_PART_MAIN);
+        lv_obj_set_style_radius(frame, 8, LV_PART_MAIN);
+        lv_obj_clear_flag(frame, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_center(frame);
+        lv_obj_t *head = aic_face(-96, 4, AIC_FACE_SAD, false, 100);
         lv_obj_t *badge = aic_box(s_content, 22, 22, AC_ACCENT, 11);
         lv_obj_align_to(badge, head, LV_ALIGN_TOP_RIGHT, 8, -6);
         lv_obj_t *bang = lv_label_create(badge);
@@ -366,11 +418,24 @@ static void aic_draw(const struct aic_screen_model *m)
 
     if (strcmp(m->state, "SESSIONS") == 0) {              /* Session list */
         aic_topbar("SESSIONS");
-        lv_obj_t *row = aic_box(s_content, 300, 36, AC_ROW, 6);
-        lv_obj_align(row, LV_ALIGN_TOP_MID, 0, 42);
-        lv_obj_t *dot = aic_box(row, 10, 10, AC_ACCENT, 5);
-        lv_obj_align(dot, LV_ALIGN_LEFT_MID, 10, 0);
-        aic_text(or_dash(m->task), AIC_F_MED, AC_WHITE, LV_ALIGN_TOP_LEFT, 42, 51, 256, false);
+        /* A short list: row 0 = the live task (orange "active" dot), plus a few
+         * representative rows (grey "idle" dots) so the screen reads as a list, not
+         * one lonely row. Real multi-session data is Phase B; these are sample rows,
+         * like the rest of the prototype demo. */
+        static const char *SESS_SUB[3] = {
+            "deploy pipeline", "doc review", "test sweep",
+        };
+        for (int i = 0; i < 4; i++) {
+            lv_obj_t *row = aic_box(s_content, 300, 30, AC_ROW, 6);
+            lv_obj_align(row, LV_ALIGN_TOP_MID, 0, 34 + i * 34);
+            lv_obj_t *dot = aic_box(row, 10, 10, i == 0 ? AC_ACCENT : AC_GREY, 5);
+            lv_obj_align(dot, LV_ALIGN_LEFT_MID, 10, 0);
+            lv_obj_t *l = lv_label_create(row);
+            lv_label_set_text(l, i == 0 ? or_dash(m->task) : SESS_SUB[i - 1]);
+            lv_obj_set_style_text_font(l, AIC_F_MED, LV_PART_MAIN);
+            lv_obj_set_style_text_color(l, i == 0 ? AC_WHITE : AC_GREY, LV_PART_MAIN);
+            lv_obj_align(l, LV_ALIGN_LEFT_MID, 32, 0);
+        }
         aic_footer(LV_SYMBOL_LIST " your tasks", NULL);
         return;
     }
@@ -381,20 +446,26 @@ static void aic_draw(const struct aic_screen_model *m)
         lv_obj_align(circ, LV_ALIGN_CENTER, 0, -6);
         lv_obj_t *mic = aic_box(circ, 16, 26, AC_WHITE, 8);
         lv_obj_align(mic, LV_ALIGN_CENTER, 0, -2);
-        lv_obj_t *w1 = aic_box(s_content, 4, 26, AC_ACCENT, 2);
-        lv_obj_align(w1, LV_ALIGN_CENTER, -46, -6);
-        lv_obj_t *w2 = aic_box(s_content, 4, 26, AC_ACCENT, 2);
-        lv_obj_align(w2, LV_ALIGN_CENTER, 46, -6);
+        /* A little equalizer: bars of varying height flanking the mic circle, so it
+         * reads as "hearing sound" rather than two lonely sticks. */
+        static const lv_coord_t EQ_H[6] = {14, 30, 20, 20, 30, 14};
+        static const lv_coord_t EQ_X[6] = {-64, -52, -40, 40, 52, 64};
+        for (int i = 0; i < 6; i++) {
+            lv_obj_t *bar = aic_box(s_content, 4, EQ_H[i], AC_ACCENT, 2);
+            lv_obj_align(bar, LV_ALIGN_CENTER, EQ_X[i], -6);
+        }
         aic_text("Speak now...", AIC_F_MED, AC_WHITE, LV_ALIGN_CENTER, 0, 46, 0, false);
         return;
     }
 
     if (strcmp(m->state, "PROCESSING") == 0) {            /* Voice processing */
         aic_topbar("PROCESSING");
-        aic_face(-70, -10, AIC_FACE_NEUTRAL, false);
+        /* Face + 3 dots centred as a group: face left of centre, dots just to its
+         * right, so the pair sits in the middle instead of hugging the left edge. */
+        aic_face(-34, -6, AIC_FACE_NEUTRAL, false, 100);
         for (int i = 0; i < 3; i++) {
             lv_obj_t *d = aic_box(s_content, 8, 8, AC_ACCENT, 4);
-            lv_obj_align(d, LV_ALIGN_CENTER, 12 + i * 16, -10);
+            lv_obj_align(d, LV_ALIGN_CENTER, 34 + i * 16, -6);
         }
         aic_text("Understanding your request...", AIC_F_SMALL, AC_WHITE,
                  LV_ALIGN_BOTTOM_MID, 0, -18, 0, false);
@@ -403,14 +474,14 @@ static void aic_draw(const struct aic_screen_model *m)
 
     if (strcmp(m->state, "OPENING") == 0) {               /* Opening result */
         aic_topbar("OPENING");
-        lv_obj_t *doc = aic_box(s_content, 46, 54, AC_ROW, 6);
-        lv_obj_align(doc, LV_ALIGN_CENTER, 0, -20);
+        lv_obj_t *doc = aic_box(s_content, 54, 64, AC_ROW, 6);
+        lv_obj_align(doc, LV_ALIGN_CENTER, 0, -22);
         for (int i = 0; i < 3; i++) {
-            lv_obj_t *ln = aic_box(doc, 26, 4, AC_ACCENT, 2);
-            lv_obj_align(ln, LV_ALIGN_TOP_LEFT, 10, 12 + i * 12);
+            lv_obj_t *ln = aic_box(doc, 32, 4, AC_ACCENT, 2);
+            lv_obj_align(ln, LV_ALIGN_TOP_LEFT, 11, 14 + i * 14);
         }
-        aic_text("Opening result...", AIC_F_MED, AC_WHITE, LV_ALIGN_CENTER, 0, 32, 0, false);
-        aic_text(or_dash(m->task), AIC_F_SMALL, AC_GREY, LV_ALIGN_CENTER, 0, 56, 0, false);
+        aic_text("Opening result...", AIC_F_MED, AC_WHITE, LV_ALIGN_CENTER, 0, 34, 0, false);
+        aic_text(or_dash(m->task), AIC_F_SMALL, AC_GREY, LV_ALIGN_CENTER, 0, 58, 0, false);
         return;
     }
 
