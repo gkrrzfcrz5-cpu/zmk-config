@@ -19,26 +19,38 @@ Expansion Board.
 > `variants/Seeed_XIAO_nRF52840_Plus/variant.cpp` `g_ADigitalPinMap[]`.
 > Pins are the XIAO **Plus** silkscreen labels `Dn`.
 
+**GPIO (only pins that connect to something)**
+
 | XIAO Plus pin | nRF pin | Function | Bus / mode | Connect to |
 |---------------|---------|----------|------------|-----------|
 | D0  | P0.02 | Voice button | direct GPIO, active-low + internal pull-up | button → GND |
+| D1  | P0.03 | **Encoder SW (push) — 5th key** | direct GPIO, active-low + internal pull-up | encoder SW → GND |
 | D2  | P0.28 | Yes button   | direct GPIO, active-low + internal pull-up | button → GND |
+| D4  | P0.04 | **Haptic SDA** | I2C (`xiao_i2c`) | DRV2605L SDA |
+| D5  | P0.05 | **Haptic SCL** | I2C (`xiao_i2c`) | DRV2605L SCL |
+| D6  | P1.11 | Encoder B (SIGB) | EC11 sensor | encoder B |
+| D7  | P1.12 | Encoder A (SIGA) | EC11 sensor | encoder A |
+| D8  | P1.13 | Screen CLK (SCK) | SPI (`xiao_spi`, 8 MHz) | panel CLK |
 | D9  | P1.14 | No button    | direct GPIO, active-low + internal pull-up | button → GND |
 | D10 | P1.15 | Open button  | direct GPIO, active-low + internal pull-up | button → GND |
-| **D1** | **P0.03** | **Encoder SW (push) — 5th key** | direct GPIO, active-low + internal pull-up | encoder SW → GND |
-| D7  | P1.12 | Encoder A (SIGA) | EC11 sensor | encoder A |
-| D6  | P1.11 | Encoder B (SIGB) | EC11 sensor | encoder B |
-| **D4** | **P0.04** | **Haptic SDA** | I2C (`xiao_i2c`) | DRV2605L SDA |
-| **D5** | **P0.05** | **Haptic SCL** | I2C (`xiao_i2c`) | DRV2605L SCL |
-| D8  | P1.13 | Screen CLK (SCK) | SPI (`xiao_spi`, 8 MHz) | panel CLK |
 | D11 | P0.15 | Screen DIN (MOSI) | SPI (MOSI moved here off native P1.15=D10) | panel DIN |
 | D12 | P0.19 | Screen CS | SPI chip-select | panel CS |
 | D13 | P1.01 | Screen DC | command/data select | panel DC |
 | D17 | P1.07 | Screen RST | reset | panel RST |
 
-Power rails: encoder VCC → **3V3** (module pulls A/B to VCC, do NOT use 5V);
-DRV2605L VIN → 3V3, OUT+/OUT- → motor (never a GPIO); panel VCC + BL → 3V3
-(backlight always on); all GND → GND; panel MISO not connected (write-only).
+**Power / ground / motor**
+
+| Signal | Connect to | Note |
+|--------|-----------|------|
+| Encoder VCC | 3V3 | module pulls A/B to VCC — **do NOT use 5V** |
+| DRV2605L VIN | 3V3 | haptic driver supply |
+| Panel VCC + BL | 3V3 | backlight always on |
+| DRV2605L OUT+ / OUT− | vibration motor | **never a GPIO** |
+| All GND (button returns, encoder, SW, DRV2605L, panel) | GND | common ground |
+
+**Not wired:** D3 / D18 / D19 are free/spare; D14 / D15 (P0.09 / P0.10 = NFC) and
+D16 (P0.31 = VBAT sense) must be avoided; the panel's MISO is left unconnected
+(the display is write-only).
 
 **Haptic SDA/SCL — read this:** `SDA → D4 (P0.04)`, `SCL → D5 (P0.05)`. Do not
 swap them or the DRV2605L is silently unresponsive (no buzz). **On the COLOUR
