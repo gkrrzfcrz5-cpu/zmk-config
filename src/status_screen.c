@@ -173,34 +173,71 @@ static void aic_btn(const char *text, lv_color_t bg, bool left)
     lv_obj_center(l);
 }
 
-/* Robot mascot, centred at (dx,dy) offset from the panel centre. `accent_marks`
- * adds two orange ticks above the head (alert / celebrate). */
+/* A static arc SEGMENT (transparent bg, no knob, no indicator) — the one curved
+ * primitive. Angles use LVGL's convention: 0=3 o'clock, 90=6 (bottom), 270=12
+ * (top), increasing clockwise. A segment through 90 curves like a smile (U); a
+ * segment through 270 curves like a frown / closed happy-eye (a shallow ∩). */
+static void aic_arc(lv_obj_t *par, lv_coord_t d, lv_coord_t width,
+                    uint16_t a0, uint16_t a1, lv_color_t col, lv_coord_t x, lv_coord_t y)
+{
+    lv_obj_t *a = lv_arc_create(par);
+    lv_obj_remove_style(a, NULL, LV_PART_KNOB);              /* no drag knob */
+    lv_obj_clear_flag(a, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_size(a, d, d);
+    lv_arc_set_bg_angles(a, a0, a1);
+    lv_obj_set_style_bg_opa(a, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_arc_color(a, col, LV_PART_MAIN);
+    lv_obj_set_style_arc_width(a, width, LV_PART_MAIN);
+    lv_obj_set_style_arc_rounded(a, true, LV_PART_MAIN);
+    lv_obj_set_style_arc_width(a, 0, LV_PART_INDICATOR);     /* hide value arc */
+    lv_obj_align(a, LV_ALIGN_CENTER, x, y);
+}
+
+/* Robot mascot, centred at (dx,dy) offset from the panel centre. A rounded white
+ * head with a little top nub, capsule eyes, and an arc mouth whose curve encodes
+ * the mood: smile (happy), flat bar (neutral), frown (worried/sad). Happy also
+ * closes the eyes into two upward arcs. `accent_marks` adds two orange antenna
+ * ticks above the head (alert / celebrate). Returns the head (for badge anchor).*/
 enum { AIC_FACE_NEUTRAL, AIC_FACE_HAPPY, AIC_FACE_WORRIED, AIC_FACE_SAD };
 static lv_obj_t *aic_face(lv_coord_t dx, lv_coord_t dy, int expr, bool accent_marks)
 {
-    lv_obj_t *head = aic_box(s_content, 64, 64, AC_WHITE, 16);
+    lv_obj_t *head = aic_box(s_content, 66, 60, AC_WHITE, 20);
     lv_obj_align(head, LV_ALIGN_CENTER, dx, dy);
 
-    lv_coord_t eye_h = (expr == AIC_FACE_HAPPY) ? 6 : 16;
-    lv_coord_t eye_y = (expr == AIC_FACE_SAD) ? -2 : -6;
-    lv_obj_t *le = aic_box(head, 10, eye_h, AC_EYE, 3);
-    lv_obj_align(le, LV_ALIGN_CENTER, -14, eye_y);
-    lv_obj_t *re = aic_box(head, 10, eye_h, AC_EYE, 3);
-    lv_obj_align(re, LV_ALIGN_CENTER, 14, eye_y);
+    /* Little top nub (sibling so it isn't clipped): a tab poking out of the top,
+     * same white so it merges with the head — the mockup robot's signature. */
+    lv_obj_t *nub = aic_box(s_content, 16, 9, AC_WHITE, 4);
+    lv_obj_align_to(nub, head, LV_ALIGN_OUT_TOP_MID, 0, 5);
 
     if (expr == AIC_FACE_HAPPY) {
-        lv_obj_t *m = aic_box(head, 24, 8, AC_EYE, 4);   /* smile */
-        lv_obj_align(m, LV_ALIGN_CENTER, 0, 18);
+        /* Closed, happy eyes: two small upward arcs (^ ^). */
+        aic_arc(head, 15, 4, 205, 335, AC_EYE, -15, -2);
+        aic_arc(head, 15, 4, 205, 335, AC_EYE,  15, -2);
+        /* Big smile (U through the bottom). */
+        aic_arc(head, 30, 5, 25, 155, AC_EYE, 0, 4);
     } else {
-        lv_obj_t *m = aic_box(head, 16, 4, AC_EYE, 2);   /* neutral/frown bar */
-        lv_obj_align(m, LV_ALIGN_CENTER, 0, (expr == AIC_FACE_WORRIED) ? 20 : 18);
+        /* Capsule eyes; sad ones a touch smaller/higher = subdued. */
+        lv_coord_t ew = (expr == AIC_FACE_SAD) ? 10 : 12;
+        lv_coord_t eh = (expr == AIC_FACE_SAD) ? 14 : 18;
+        lv_coord_t ey = (expr == AIC_FACE_SAD) ? -3 : -6;
+        lv_obj_t *le = aic_box(head, ew, eh, AC_EYE, ew / 2);
+        lv_obj_align(le, LV_ALIGN_CENTER, -15, ey);
+        lv_obj_t *re = aic_box(head, ew, eh, AC_EYE, ew / 2);
+        lv_obj_align(re, LV_ALIGN_CENTER, 15, ey);
+
+        if (expr == AIC_FACE_NEUTRAL) {
+            lv_obj_t *m = aic_box(head, 18, 5, AC_EYE, 2);   /* calm flat mouth */
+            lv_obj_align(m, LV_ALIGN_CENTER, 0, 16);
+        } else {
+            aic_arc(head, 28, 5, 205, 335, AC_EYE, 0, 22);   /* frown (∩) */
+        }
     }
 
     if (accent_marks) {
-        lv_obj_t *m1 = aic_box(s_content, 4, 14, AC_ACCENT, 2);
-        lv_obj_align_to(m1, head, LV_ALIGN_OUT_TOP_MID, -9, -2);
-        lv_obj_t *m2 = aic_box(s_content, 4, 14, AC_ACCENT, 2);
-        lv_obj_align_to(m2, head, LV_ALIGN_OUT_TOP_MID, 9, -2);
+        lv_obj_t *m1 = aic_box(s_content, 4, 13, AC_ACCENT, 2);
+        lv_obj_align_to(m1, head, LV_ALIGN_OUT_TOP_MID, -15, -3);
+        lv_obj_t *m2 = aic_box(s_content, 4, 13, AC_ACCENT, 2);
+        lv_obj_align_to(m2, head, LV_ALIGN_OUT_TOP_MID, 15, -3);
     }
     return head;
 }
@@ -332,6 +369,66 @@ static void aic_draw(const struct aic_screen_model *m)
     /* Unknown state (forward-compat): standby-style fallback. */
     aic_topbar(or_dash(m->state));
     aic_body_lr(AIC_FACE_NEUTRAL, false, "AI Companion", AC_WHITE, or_dash(m->state));
+}
+
+/* --- boot splash (colour only) --------------------------------------------- */
+/*
+ * A black-background power-on animation modelled on optimus_boot_preview.html: a
+ * static thick white inner ring, a rotating white outer ring, and a tagline. It
+ * is a full-screen opaque overlay laid OVER the status screen at init; a one-shot
+ * LVGL timer removes it after ~3.2 s, revealing whatever state is current by then
+ * (standby if the host is still silent). The outer ring is an lv_spinner (an
+ * arc that LVGL rotates on its own animation timer) rather than a rotated 52-tooth
+ * bitmap — a spinning arc stays smooth under software rendering at 8 MHz SPI.
+ */
+static void aic_boot_done(lv_timer_t *t)
+{
+    lv_obj_t *ov = (lv_obj_t *)t->user_data;
+    if (ov != NULL) {
+        lv_obj_del(ov);   /* deletes the spinner + its animation with it */
+    }
+    /* repeat_count was 1, so LVGL deletes this timer itself after we return. */
+}
+
+static void aic_boot_splash(lv_obj_t *screen)
+{
+    lv_obj_t *ov = lv_obj_create(screen);
+    lv_obj_remove_style_all(ov);
+    lv_obj_set_size(ov, lv_disp_get_hor_res(NULL), lv_disp_get_ver_res(NULL));
+    lv_obj_set_style_bg_color(ov, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(ov, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_clear_flag(ov, LV_OBJ_FLAG_SCROLLABLE);
+
+    /* Inner static thick ring (a circle outline). */
+    lv_obj_t *inner = lv_obj_create(ov);
+    lv_obj_remove_style_all(inner);
+    lv_obj_set_size(inner, 56, 56);
+    lv_obj_set_style_radius(inner, LV_RADIUS_CIRCLE, LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(inner, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_color(inner, AC_WHITE, LV_PART_MAIN);
+    lv_obj_set_style_border_width(inner, 9, LV_PART_MAIN);
+    lv_obj_clear_flag(inner, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_align(inner, LV_ALIGN_CENTER, 0, -18);
+
+    /* Outer rotating ring: dim full track (MAIN) + bright sweeping arc (INDICATOR),
+     * one turn every 1.4 s. */
+    lv_obj_t *sp = lv_spinner_create(ov, 1400, 90);
+    lv_obj_set_size(sp, 104, 104);
+    lv_obj_align(sp, LV_ALIGN_CENTER, 0, -18);
+    lv_obj_set_style_arc_color(sp, lv_color_hex(0x2A2E36), LV_PART_MAIN);
+    lv_obj_set_style_arc_width(sp, 8, LV_PART_MAIN);
+    lv_obj_set_style_arc_color(sp, AC_WHITE, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_width(sp, 8, LV_PART_INDICATOR);
+
+    /* Tagline (Latin-only Montserrat, matches the reference wording). */
+    lv_obj_t *tag = lv_label_create(ov);
+    lv_label_set_text(tag, "Build anything with Optimus");
+    lv_obj_set_style_text_font(tag, AIC_F_SMALL, LV_PART_MAIN);
+    lv_obj_set_style_text_color(tag, AC_WHITE, LV_PART_MAIN);
+    lv_obj_align(tag, LV_ALIGN_BOTTOM_MID, 0, -16);
+
+    lv_timer_t *t = lv_timer_create(aic_boot_done, 3200, ov);
+    lv_timer_set_repeat_count(t, 1);
 }
 
 #else
@@ -519,6 +616,11 @@ lv_obj_t *zmk_display_status_screen(void)
 
     /* Draw whatever we have (standby if the host hasn't spoken yet). */
     aic_draw(&s_model);
+
+#if defined(AIC_COLOR_UI)
+    /* Lay the black boot animation over the top; it removes itself after ~3.2 s. */
+    aic_boot_splash(screen);
+#endif
 
     return screen;
 }
