@@ -14,6 +14,7 @@
 
 #include <behaviors.dtsi>
 #include <dt-bindings/zmk/keys.h>
+#include <dt-bindings/zmk/bt.h>
 
 /*
  * Physical button ids passed to &aic_input. KEEP IN SYNC with the AIC_KEY_*
@@ -64,6 +65,23 @@
                 &aic_input AIC_VOICE   &aic_input AIC_YES   &aic_input AIC_NO   &aic_input AIC_OPEN   &aic_input AIC_ENC
             >;
             sensor-bindings = <&encoder_scroll>;
+        };
+    };
+};
+
+/ {
+    /*
+     * Yes (pos 1) + No (pos 2) pressed together -> clear the active BLE
+     * profile's bond. Lets any unit re-pair / recover from a stale bond
+     * without a reflash. Pressing Yes or No alone still reports normally.
+     */
+    combos {
+        compatible = "zmk,combos";
+
+        combo_bt_clr {
+            timeout-ms = <200>;
+            key-positions = <1 2>;
+            bindings = <&bt BT_CLR>;
         };
     };
 };
