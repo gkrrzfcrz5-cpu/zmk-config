@@ -80,6 +80,11 @@
          * screen for exactly as long as the button is held — even with no host
          * running — and reverts the moment you let go.
          *
+         * GOTCHA: &macro_release makes the macro's press/release mode sticky for
+         * every following binding, so the final Cmd+M MUST be &macro_tap'd back
+         * to tap mode — otherwise it only emits a key-release (no press) and
+         * Optimus's mic never toggles off (you'd have to press Voice again).
+         *
          * NOTE: Cmd+M is delivered to the FRONTMOST app, so Optimus must be
          * focused for this to open its mic; otherwise Cmd+M just minimises
          * whatever window is in front.
@@ -93,7 +98,7 @@
                 , <&macro_press &voice_scr>
                 , <&macro_pause_for_release>
                 , <&macro_release &voice_scr>
-                , <&kp LG(M)>;
+                , <&macro_tap &kp LG(M)>;
         };
     };
 };
