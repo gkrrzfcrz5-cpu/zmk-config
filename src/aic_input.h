@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 
 /*
@@ -33,3 +34,12 @@
  * Safe to call from a behavior (thread) context; NOT from an ISR.
  */
 void aic_comm_send_input(uint32_t key);
+
+/*
+ * Drive the device's LOCAL "listening" screen for Voice push-to-talk, with no
+ * host involved. `on` = true shows the LISTENING screen (snapshotting whatever
+ * is currently drawn); `on` = false restores that snapshot. The redraw is
+ * marshalled onto the display work queue internally (LVGL is single-threaded),
+ * so this is safe to call from a behavior (thread) context; NOT from an ISR.
+ */
+void aic_comm_voice_screen(bool on);

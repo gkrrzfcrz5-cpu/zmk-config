@@ -68,3 +68,12 @@ endif()
 if(CONFIG_ZMK_BEHAVIOR_AIC_INPUT)
   target_sources(app PRIVATE src/behavior_input.c)
 endif()
+
+# Local Voice LISTENING screen behavior: shows the "listening" screen while the
+# Voice button is held and restores the previous screen on release, with no host
+# involved. Compiled into `app` for the same reasons as behavior_input.c (needs
+# app's PRIVATE include, must not be lazily dropped, calls aic_comm_voice_screen()
+# in the app-target aic_comm.c). Gated by its Kconfig (implies AIC_COMM).
+if(CONFIG_ZMK_BEHAVIOR_AIC_VOICE_SCREEN)
+  target_sources(app PRIVATE src/behavior_voice_screen.c)
+endif()

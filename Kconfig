@@ -36,3 +36,15 @@ config ZMK_BEHAVIOR_AIC_INPUT
       Requires AIC_COMM. Auto-enabled when an `aic,behavior-input` node is
       present (the ai_companion keymap defines one).
 
+config ZMK_BEHAVIOR_AIC_VOICE_SCREEN
+    bool "AI Companion local Voice LISTENING screen behavior"
+    default y
+    depends on DT_HAS_AIC_BEHAVIOR_VOICE_SCREEN_ENABLED && AIC_COMM
+    help
+      Custom ZMK behavior that shows the device's LOCAL "listening" screen while
+      the Voice button is held and restores the previous screen on release
+      (src/behavior_voice_screen.c -> aic_comm_voice_screen). Driven by the
+      voice_ptt macro via macro_press/macro_release so it tracks the physical
+      hold, independent of any host. Requires AIC_COMM. Auto-enabled when an
+      `aic,behavior-voice-screen` node is present (the colour keymap defines one).
+

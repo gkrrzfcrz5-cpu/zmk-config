@@ -1,0 +1,13 @@
+# Copyright (c) 2026 The AI Companion Contributors
+# SPDX-License-Identifier: MIT
+
+description: |
+  AI Companion local Voice "listening" screen behavior. Referenced from the
+  keymap by phandle (zero binding cells), wrapped in the voice_ptt macro's
+  macro_press/macro_release so its press shows the device's own LISTENING
+  screen and its release restores the previous screen — tracking the physical
+  Voice hold, independent of any host.
+
+compatible: "aic,behavior-voice-screen"
+
+include: zero_param.yaml

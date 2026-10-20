@@ -353,6 +353,43 @@ static void aic_standby_work_cb(struct k_work *work)
 }
 K_WORK_DEFINE(s_standby_work, aic_standby_work_cb);
 
+/* --- Voice push-to-talk: local LISTENING overlay --------------------------- */
+/*
+ * While the Voice button is physically held, show the LISTENING screen locally
+ * so the device gives visual feedback even with no host/bridge running. The
+ * keymap's voice_ptt macro wraps aic_comm_voice_screen() via a dedicated
+ * &aic_input-sibling behavior (src/behavior_voice_screen.c) with macro_press /
+ * macro_release, so `true` arrives on the physical press and `false` on the
+ * physical release. Both callbacks run on the display queue (they call
+ * aic_screen_render, which touches LVGL), so reusing s_work_model is safe —
+ * it is only ever written from this single thread.
+ */
+static struct aic_screen_model s_voice_saved; /* screen to restore on release */
+
+static void aic_voice_show_work_cb(struct k_work *work)
+{
+    ARG_UNUSED(work);
+    s_voice_saved = s_work_model;           /* remember what we were showing */
+    memset(&s_work_model, 0, sizeof(s_work_model));
+    strcpy(s_work_model.state, "LISTENING");
+    aic_screen_render(&s_work_model);
+}
+K_WORK_DEFINE(s_voice_show_work, aic_voice_show_work_cb);
+
+static void aic_voice_hide_work_cb(struct k_work *work)
+{
+    ARG_UNUSED(work);
+    s_work_model = s_voice_saved;           /* put the previous screen back */
+    aic_screen_render(&s_work_model);
+}
+K_WORK_DEFINE(s_voice_hide_work, aic_voice_hide_work_cb);
+
+void aic_comm_voice_screen(bool on)
+{
+    k_work_submit_to_queue(zmk_display_work_q(),
+                           on ? &s_voice_show_work : &s_voice_hide_work);
+}
+
 /* --- UART RX ISR ----------------------------------------------------------- */
 
 static struct aic_line s_scratch; /* ISR-only accumulator */
