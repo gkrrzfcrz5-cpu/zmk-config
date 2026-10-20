@@ -9,7 +9,8 @@
  * The 5 buttons report their press to the Mac as an `input` message over the
  * USB CDC-ACM channel (Phase 5): each is bound to `&aic_input <KEY>` and the
  * host decides what the press means for the screen currently shown.
- *   Voice -> VOICE,  Yes -> YES,  No -> NO,  Open -> OPEN,  Encoder push -> ENC
+ *   Voice -> Cmd+M push-to-talk (Optimus mic) + VOICE report,
+ *   Yes -> YES,  No -> NO,  Open -> OPEN,  Encoder push -> ENC
  */
 
 #include <behaviors.dtsi>
@@ -57,13 +58,39 @@
 };
 
 / {
+    macros {
+        /*
+         * Voice = push-to-talk for Optimus. Optimus's "Voice input" is the
+         * keyboard shortcut Cmd+M, a TOGGLE (1st press starts listening, 2nd
+         * stops). To get a hold-to-talk feel we tap Cmd+M on PRESS (start) and
+         * tap Cmd+M again on RELEASE (stop) — so holding Voice records and
+         * letting go stops/sends. Also report VOICE to the host on press, so a
+         * running bridge can still drive the LISTENING screen.
+         *
+         * NOTE: Cmd+M is delivered to the FRONTMOST app, so Optimus must be
+         * focused for this to open its mic; otherwise Cmd+M just minimises
+         * whatever window is in front.
+         */
+        voice_ptt: voice_ptt {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            bindings
+                = <&kp LG(M)>
+                , <&aic_input AIC_VOICE>
+                , <&macro_pause_for_release>
+                , <&kp LG(M)>;
+        };
+    };
+};
+
+/ {
     keymap {
         compatible = "zmk,keymap";
 
         default_layer {
             display-name = "AICompanion";
             bindings = <
-                &aic_input AIC_VOICE   &aic_input AIC_YES   &aic_input AIC_NO   &aic_input AIC_OPEN   &aic_input AIC_ENC
+                &voice_ptt   &aic_input AIC_YES   &aic_input AIC_NO   &aic_input AIC_OPEN   &aic_input AIC_ENC
             >;
             sensor-bindings = <&encoder_scroll>;
         };
@@ -83,17 +110,6 @@
             timeout-ms = <200>;
             key-positions = <1 2>;
             bindings = <&bt BT_CLR>;
-        };
-
-        /*
-         * VERIFY/TEMP: Voice (pos 0) + Open (pos 3) -> toggle the backlight.
-         * Confirms firmware drives P1.05: the panel going DARK is the proof
-         * (the panel's stray pull-up can only ever turn the backlight ON).
-         */
-        combo_bl_tog {
-            timeout-ms = <300>;
-            key-positions = <0 3>;
-            bindings = <&bl BL_TOG>;
         };
     };
 };
