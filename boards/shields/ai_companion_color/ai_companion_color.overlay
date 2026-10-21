@@ -94,6 +94,19 @@
         sensors = <&encoder>;
         triggers-per-rotation = <20>;
     };
+
+    /*
+     * Soft-off wakeup sources. When &soft_off (bound to the Yes+Open combo in
+     * the keymap) powers the chip into System OFF, ZMK keeps the devices listed
+     * here alive so they can wake it again. kscan0 already carries
+     * `wakeup-source;` and is a direct GPIO kscan, so listing it here is the ZMK
+     * docs' simplest path: pressing ANY of the 5 keys (Voice/Yes/No/Open/EncSW)
+     * wakes the device — no dedicated gpio-key / sideband node needed.
+     */
+    soft_off_wakers {
+        compatible = "zmk,soft-off-wakeup-sources";
+        wakeup-sources = <&kscan0>;
+    };
 };
 
 /*

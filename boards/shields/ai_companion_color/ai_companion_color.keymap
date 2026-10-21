@@ -122,6 +122,13 @@
      * Yes (pos 1) + No (pos 2) pressed together -> clear the active BLE
      * profile's bond. Lets any unit re-pair / recover from a stale bond
      * without a reflash. Pressing Yes or No alone still reports normally.
+     *
+     * Yes (pos 1) + Open (pos 3) HELD ~1.5s -> &soft_off (真·關機). The device
+     * powers into nRF52840 System OFF (~µA); press ANY key to wake it back up
+     * (kscan0 is the soft-off wakeup source — see the .overlay). The ~1.5s hold
+     * (hold-time-ms override below) stops a brief accidental Yes+Open tap from
+     * shutting the device down; a quick tap does nothing. Does not collide with
+     * the Yes+No BT_CLR combo (different key pair).
      */
     combos {
         compatible = "zmk,combos";
@@ -131,5 +138,19 @@
             key-positions = <1 2>;
             bindings = <&bt BT_CLR>;
         };
+
+        combo_soft_off {
+            timeout-ms = <200>;
+            key-positions = <1 3>;
+            bindings = <&soft_off>;
+        };
     };
+};
+
+/*
+ * Require the Yes+Open combo to be HELD ~1.5s before it actually powers off
+ * (default &soft_off fires the instant the key is released, even on a tap).
+ */
+&soft_off {
+    hold-time-ms = <1500>;
 };
