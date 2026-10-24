@@ -7,7 +7,7 @@
  * Same firmware LOGIC as the mono `ai_companion` shield (4 buttons + EC11
  * encoder + DRV2605L haptic + USB CDC-ACM data channel + the custom 12-screen
  * status UI), but:
- *   1) the display is a Waveshare 1.9" ST7789V2 IPS panel (170x320, 4-wire SPI)
+ *   1) the display is a Waveshare 2.4" ILI9341 IPS panel (240x320, 4-wire SPI)
  *      instead of the 128x64 I2C SSD1306, and
  *   2) the rotary encoder's push switch (SW) is now wired as a 5th button.
  *
@@ -18,13 +18,12 @@
  * 11-pin header (D0-D10) does NOT expose enough pins for panel + 5 buttons +
  * encoder + haptic, so this shield REQUIRES the Plus.
  *
- * VERIFICATION LEVEL: HW-VERIFIED (panel lights up, 12 screens push over USB).
- * The ST7789 init values are borrowed from Zephyr's own generic ST7789V
- * reference overlay (boards/shields/st7789v_generic). The panel runs LANDSCAPE
- * 320x170 (rotated 90 deg via the MADCTL MV bit) to fit the horizontal-bar
- * enclosure; the 35-px centring offset for the 170 dimension is on the y axis.
- * SPI is 8 MHz (dupont jumpers ring at 20 MHz -> fuzzy text). The exact MADCTL
- * flip direction and offset are confirmed at bring-up (see the node below).
+ * VERIFICATION LEVEL: NOT YET HW-VERIFIED on this panel (bring-up pending — the
+ * 1.9" ST7789 build was verified; this is the 2.4" ILI9341 swap). The ILI9341
+ * driver supplies its own register defaults; the only panel-specific choices
+ * here are 8 MHz SPI (dupont jumpers ring higher -> fuzzy text) and the LANDSCAPE
+ * orientation (rotation = 270). The exact rotation direction is confirmed at
+ * bring-up (see the node below).
  *
  * ---- Pin map (XIAO Plus digital pin -> nRF GPIO; source = Seeed variant.cpp) ----
  *   Existing 8 signals — UNCHANGED from the mono shield:
@@ -56,7 +55,7 @@
     chosen {
         zmk,kscan = &kscan0;
         zmk,matrix-transform = &default_transform;
-        zephyr,display = &st7789v_color;   // colour panel replaces the OLED
+        zephyr,display = &ili9341_color;   // colour panel replaces the OLED
     };
 
     default_transform: keymap_transform_0 {
@@ -110,7 +109,7 @@
 };
 
 /*
- * Colour panel — Waveshare 1.9" ST7789V2 (170x320, 4-wire SPI), on the XIAO's
+ * Colour panel — Waveshare 2.4" ILI9341 (240x320, 4-wire SPI), on the XIAO's
  * SPI2 (`xiao_spi`). SPI2's native pins are SCK=P1.13, MOSI=P1.15, MISO=P1.14.
  * We keep SCK on P1.13 (= D8, free) but MOVE MOSI off P1.15 — that pin is D10,
  * the Open button — onto P0.15 (= D11). MISO is dropped: the display is
@@ -142,54 +141,34 @@
     cs-gpios = <&gpio0 19 GPIO_ACTIVE_LOW>;   // CS = D12 (P0.19)
 
     /*
-     * ST7789V node. Register/gamma/power values are copied from Zephyr's own
-     * generic reference (boards/shields/st7789v_generic/
-     * st7789v_waveshare_240x240.overlay) — they are ST7789-controller settings,
-     * not size-specific — with only width/height/x-offset changed for the
-     * 170x320 panel. colmod 0x05 = RGB565 (matches CONFIG_LV_COLOR_DEPTH_16).
+     * ILI9341 node (Waveshare 2.4"). Unlike the old ST7789 node, the Zephyr
+     * ILI9341 driver (shared drivers/display/display_ili9xxx.c) already carries
+     * sensible defaults for EVERY power/gamma/VCOM/frame register in its binding
+     * (dts/bindings/display/ilitek,ili9341.yaml), so none of those arrays need
+     * to be restated here — this node is just bus + control pins + orientation.
+     *
+     * Resolution is FIXED inside the driver (ILI9341 = 240x320 portrait); we do
+     * NOT set width/height. `rotation = <270>` turns it to LANDSCAPE 320x240 for
+     * the horizontal-bar enclosure and programs MADCTL for us — no manual mdac /
+     * offset. pixel-format <0> = RGB565 (matches CONFIG_LV_COLOR_DEPTH_16).
      */
-    st7789v_color: st7789v@0 {
-        compatible = "sitronix,st7789v";
+    ili9341_color: ili9341@0 {
+        compatible = "ilitek,ili9341";
         reg = <0>;
         /*
-         * 8 MHz (was 20 MHz). The panel is wired with dupont jumpers; 20 MHz on
-         * long unshielded leads rings/couples and shows up as fuzzy/ghosted text
-         * ("糊"). 8 MHz is plenty for these static status pages. Raise once the
-         * panel is on a proper flex/PCB with short traces.
+         * 8 MHz. The panel is wired with dupont jumpers; faster rates on long
+         * unshielded leads ring/couple and show up as fuzzy/ghosted pixels.
+         * Raise once the panel is on a proper flex/PCB with short traces.
          */
         spi-max-frequency = <8000000>;
         cmd-data-gpios = <&gpio1 1 GPIO_ACTIVE_LOW>;   // DC  = D13 (P1.01)
-        reset-gpios    = <&gpio1 7 GPIO_ACTIVE_LOW>;    // RST = D17 (P1.07)
+        reset-gpios    = <&gpio1 7 GPIO_ACTIVE_LOW>;   // RST = D17 (P1.07)
+        pixel-format = <0>;    // 0 = RGB565
         /*
-         * LANDSCAPE 320x170 (horizontal-bar enclosure). Native panel is portrait
-         * 170x320; we rotate 90 deg by setting the MADCTL MV bit (row/col
-         * exchange). Width/height are swapped vs native, and the 35-px centring
-         * gap for the 170 dimension moves from x (portrait) to y (landscape):
-         *   170 + 35*2 = 240 = ST7789 controller RAM width, so 35 holds under
-         *   either mirror direction.
-         * mdac = 0x60 = MV(0x20) | MX(0x40). If the image comes up upside-down or
-         * mirrored at bring-up, try 0xA0 (MV | MY) instead — both are landscape,
-         * they differ only by 180 deg / flip.
+         * 270 = landscape 320x240. If the image comes up upside-down / mirrored
+         * at bring-up, try 90 instead — both are landscape, 180 deg apart.
          */
-        width = <320>;
-        height = <170>;
-        x-offset = <0>;
-        y-offset = <35>;    // (240 - 170) / 2 now on the 170-tall axis
-        vcom = <0x19>;
-        gctrl = <0x35>;
-        vrhs = <0x12>;
-        vdvs = <0x20>;
-        mdac = <0x60>;      // MV | MX = landscape
-        gamma = <0x01>;
-        colmod = <0x05>;
-        lcm = <0x2c>;
-        porch-param = [0c 0c 00 33 33];
-        cmd2en-param = [5a 69 02 01];
-        pwctrl1-param = [a4 a1];
-        pvgam-param = [D0 04 0D 11 13 2B 3F 54 4C 18 0D 0B 1F 23];
-        nvgam-param = [D0 04 0C 11 13 2C 3F 44 51 2F 1F 1F 20 23];
-        ram-param = [00 F0];
-        rgb-param = [CD 08 14];
+        rotation = <270>;
     };
 };
 
@@ -225,16 +204,16 @@
 
 /*
  * ---- Backlight control (BL = D18 = P1.05) ----
- * The Waveshare 1.9" panel's BL pin is a LOGIC control input (it feeds the
- * panel's on-board TXS0108 level-shifter -> S8050 transistor that switches the
- * LED current), NOT an LED-current pin — so an nRF GPIO/PWM can drive it
- * directly, no MOSFET. On this redrawn PCB the BL net goes to P1.05 with NO
- * pulldown fitted, so while the pin floats the TXS0108's internal pull-up turns
- * the backlight ON by itself. Driving P1.05 from PWM0 takes real control:
- * high = lit, low = dark. ZMK backlight defaults to on-at-boot at 100%.
+ * The Waveshare 2.4" panel's BL pin is a LOGIC control input (BL -> R5 1K -> NPN
+ * base, with R6 10K on the base, switching the LED current), NOT an LED-current
+ * pin — so an nRF GPIO/PWM can drive it directly, no MOSFET. The BL net goes to
+ * P1.05; driving it from PWM0 gives real control: high = lit, low = dark. ZMK
+ * backlight defaults to on-at-boot at 100%. (Unlike the 1.9" panel there is no
+ * TXS0108 pull-up forcing it on, so floating-pin behaviour differs — see the
+ * soft-off HARDWARE NOTE in the .conf.)
  *
  * VERIFY: hold Voice + Open -> &bl BL_TOG (see keymap). The panel going DARK is
- * the proof firmware owns P1.05 — the stray pull-up can only ever light it.
+ * the proof firmware owns P1.05.
  */
 #include <dt-bindings/pwm/pwm.h>
 
