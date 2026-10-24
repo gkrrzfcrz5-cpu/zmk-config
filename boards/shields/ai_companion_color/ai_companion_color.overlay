@@ -147,8 +147,10 @@
      * (dts/bindings/display/ilitek,ili9341.yaml), so none of those arrays need
      * to be restated here — this node is just bus + control pins + orientation.
      *
-     * Resolution is FIXED inside the driver (ILI9341 = 240x320 portrait); we do
-     * NOT set width/height. `rotation = <270>` turns it to LANDSCAPE 320x240 for
+     * Resolution is FIXED inside the driver (ILI9341 = 240x320 portrait, from
+     * its X_RES/Y_RES macros); width/height below are only there because the
+     * binding marks them required (display-controller.yaml) — the driver ignores
+     * them for resolution. `rotation = <270>` turns it to LANDSCAPE 320x240 for
      * the horizontal-bar enclosure and programs MADCTL for us — no manual mdac /
      * offset. pixel-format <0> = RGB565 (matches CONFIG_LV_COLOR_DEPTH_16).
      */
@@ -164,6 +166,16 @@
         cmd-data-gpios = <&gpio1 1 GPIO_ACTIVE_LOW>;   // DC  = D13 (P1.01)
         reset-gpios    = <&gpio1 7 GPIO_ACTIVE_LOW>;   // RST = D17 (P1.07)
         pixel-format = <0>;    // 0 = RGB565
+        /*
+         * width/height are REQUIRED by the binding (inherited from
+         * display-controller.yaml) but the ili9xxx driver does NOT use them for
+         * resolution — it takes that from its own ILI9341_X_RES/Y_RES macros
+         * (240x320) and swaps per `rotation`. So these are the native-panel
+         * values purely to satisfy the binding; the live resolution is driven by
+         * rotation below (270 -> landscape 320x240).
+         */
+        width = <240>;
+        height = <320>;
         /*
          * 270 = landscape 320x240. If the image comes up upside-down / mirrored
          * at bring-up, try 90 instead — both are landscape, 180 deg apart.
